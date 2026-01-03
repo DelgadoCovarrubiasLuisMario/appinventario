@@ -249,24 +249,33 @@ async function exportCatalogoToPDF() {
         const doc = new jsPDF('p', 'mm', 'a4');
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
-        const margin = 15;
+        const margin = 12; // Reducido
         const cardWidth = (pageWidth - 3 * margin) / 2;
-        const cardHeight = 60;
+        const cardHeight = 55; // Altura reducida para tarjetas más compactas
+        const imgHeight = 30; // Altura reducida para imágenes más compactas
+        const imgPadding = 4; // Padding reducido
         let x = margin;
-        let y = margin + 20; // Espacio para el título
+        let y = margin + 18; // Espacio reducido para el título
         
-        // Título
-        doc.setFontSize(20);
+        // Título con mejor diseño
+        doc.setFontSize(20); // Reducido ligeramente
+        doc.setFont(undefined, 'bold');
         doc.setTextColor(255, 105, 180); // Rosa
-        doc.text('Catálogo de Productos', pageWidth / 2, margin + 10, { align: 'center' });
+        doc.text('Catálogo de Productos', pageWidth / 2, margin + 6, { align: 'center' });
+        
+        // Línea decorativa bajo el título
+        doc.setDrawColor(255, 182, 193);
+        doc.setLineWidth(0.8);
+        doc.line(pageWidth / 2 - 35, margin + 10, pageWidth / 2 + 35, margin + 10);
         
         // Fecha
-        doc.setFontSize(10);
-        doc.setTextColor(100, 100, 100);
+        doc.setFontSize(8); // Reducido
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(150, 150, 150);
         const fecha = new Date().toLocaleDateString('es-ES');
-        doc.text(`Fecha: ${fecha}`, pageWidth / 2, margin + 18, { align: 'center' });
+        doc.text(`Fecha: ${fecha}`, pageWidth / 2, margin + 15, { align: 'center' });
         
-        y = margin + 30;
+        y = margin + 22; // Reducido
         
         // Procesar cada producto
         for (let i = 0; i < productos.length; i++) {
@@ -279,87 +288,199 @@ async function exportCatalogoToPDF() {
                 x = margin;
             }
             
-            // Dibujar borde de la tarjeta
-            doc.setDrawColor(200, 200, 200);
-            doc.setLineWidth(0.5);
-            doc.roundedRect(x, y, cardWidth, cardHeight, 2, 2);
+            // Dibujar borde de la tarjeta con mejor diseño
+            doc.setDrawColor(255, 182, 193); // Rosa pastel
+            doc.setLineWidth(0.3);
+            
+            // Fondo sutil de la tarjeta
+            doc.setFillColor(255, 250, 250);
+            doc.roundedRect(x, y, cardWidth, cardHeight, 3, 3, 'F');
+            doc.setDrawColor(255, 182, 193);
+            doc.roundedRect(x, y, cardWidth, cardHeight, 3, 3);
+            
+            // Área fija para la imagen (siempre el mismo tamaño)
+            const imgAreaY = y + imgPadding;
+            const imgAreaHeight = imgHeight;
+            const imgAreaWidth = cardWidth - (imgPadding * 2);
             
             // Cargar y agregar imagen
             try {
                 const imgUrl = convertImageUrl(producto.foto);
-                if (!imgUrl || !imgUrl.includes('drive.google.com') && !imgUrl.includes('http')) {
-                    // Si no hay imagen válida, dibujar placeholder
-                    doc.setFillColor(255, 230, 240);
-                    doc.roundedRect(x + 5, y + 5, cardWidth - 10, 30, 2, 2, 'F');
-                    doc.setFontSize(8);
-                    doc.setTextColor(200, 200, 200);
-                    doc.text('Sin imagen', x + cardWidth / 2, y + 20, { align: 'center' });
+                if (!imgUrl || (!imgUrl.includes('drive.google.com') && !imgUrl.includes('http'))) {
+                    // Si no hay imagen válida, dibujar placeholder con tamaño fijo
+                    const placeholderWidth = cardWidth - (imgPadding * 2);
+                    const placeholderHeight = imgHeight;
+                    const placeholderX = x + imgPadding;
+                    const placeholderY = y + imgPadding;
+                    
+                    doc.setFillColor(255, 240, 245);
+                    doc.roundedRect(placeholderX, placeholderY, placeholderWidth, placeholderHeight, 2, 2, 'F');
+                    doc.setDrawColor(255, 200, 220);
+                    doc.setLineWidth(0.5);
+                    doc.roundedRect(placeholderX, placeholderY, placeholderWidth, placeholderHeight, 2, 2);
+                    doc.setFontSize(7);
+                    doc.setTextColor(200, 180, 190);
+                    doc.text('Sin imagen', x + cardWidth / 2, placeholderY + (placeholderHeight / 2), { align: 'center' });
                 } else {
+                    // Usar un proxy de imágenes para evitar problemas de CORS
+                    let finalImgUrl = imgUrl;
+                    
+                    // Si es de Google Drive, usar un proxy que agregue headers CORS
+                    if (imgUrl.includes('drive.google.com')) {
+                        const fileIdMatch = imgUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+                        if (fileIdMatch) {
+                            const fileId = fileIdMatch[1];
+                            // Usar proxy de imágenes que maneja CORS
+                            finalImgUrl = `https://images.weserv.nl/?url=https://drive.google.com/thumbnail?id=${fileId}&sz=w1000&output=jpg`;
+                        }
+                    }
+                    
                     const img = new Image();
-                    // No usar crossOrigin para evitar problemas con Google Drive
                     
                     await new Promise((resolve) => {
                         const timeout = setTimeout(() => {
-                            // Timeout después de 5 segundos
-                            doc.setFillColor(255, 230, 240);
-                            doc.roundedRect(x + 5, y + 5, cardWidth - 10, 30, 2, 2, 'F');
-                            doc.setFontSize(8);
-                            doc.setTextColor(200, 200, 200);
-                            doc.text('Cargando...', x + cardWidth / 2, y + 20, { align: 'center' });
+                            // Timeout después de 10 segundos
+                            console.warn('Timeout cargando imagen:', finalImgUrl);
+                            // Placeholder con tamaño fijo igual al área de imagen
+                            const placeholderWidth = cardWidth - (imgPadding * 2);
+                            const placeholderHeight = imgHeight;
+                            const placeholderX = x + imgPadding;
+                            const placeholderY = y + imgPadding;
+                            
+                            doc.setFillColor(255, 240, 245);
+                            doc.roundedRect(placeholderX, placeholderY, placeholderWidth, placeholderHeight, 2, 2, 'F');
+                            doc.setDrawColor(255, 200, 220);
+                            doc.setLineWidth(0.5);
+                            doc.roundedRect(placeholderX, placeholderY, placeholderWidth, placeholderHeight, 2, 2);
+                            doc.setFontSize(7);
+                            doc.setTextColor(200, 180, 190);
+                            doc.text('Sin imagen', x + cardWidth / 2, placeholderY + (placeholderHeight / 2), { align: 'center' });
                             resolve();
-                        }, 5000);
+                        }, 10000);
                         
                         img.onload = () => {
                             clearTimeout(timeout);
                             try {
-                                const imgWidth = cardWidth - 10;
-                                const imgHeight = (img.height / img.width) * imgWidth;
-                                const maxImgHeight = 35;
-                                const finalImgHeight = Math.min(imgHeight, maxImgHeight);
-                                const finalImgWidth = (img.width / img.height) * finalImgHeight;
-                                const imgX = x + (cardWidth - finalImgWidth) / 2;
-                                const imgY = y + 5;
+                                // Calcular dimensiones para el PDF - tamaño fijo
+                                const imgAreaWidth = cardWidth - (imgPadding * 2);
+                                const imgAreaHeight = imgHeight;
                                 
-                                doc.addImage(img, 'JPEG', imgX, imgY, finalImgWidth, finalImgHeight);
+                                // Calcular dimensiones manteniendo proporción pero ajustando al área fija
+                                const imgAspectRatio = img.width / img.height;
+                                const areaAspectRatio = imgAreaWidth / imgAreaHeight;
+                                
+                                let finalImgWidth, finalImgHeight;
+                                
+                                if (imgAspectRatio > areaAspectRatio) {
+                                    // Imagen más ancha - ajustar al ancho
+                                    finalImgWidth = imgAreaWidth;
+                                    finalImgHeight = imgAreaWidth / imgAspectRatio;
+                                } else {
+                                    // Imagen más alta - ajustar al alto
+                                    finalImgHeight = imgAreaHeight;
+                                    finalImgWidth = imgAreaHeight * imgAspectRatio;
+                                }
+                                
+                                // Centrar la imagen en el área
+                                const imgX = x + imgPadding + (imgAreaWidth - finalImgWidth) / 2;
+                                const imgY = y + imgPadding + (imgAreaHeight - finalImgHeight) / 2;
+                                
+                                // Agregar imagen directamente al PDF (jsPDF puede manejar URLs con proxy)
+                                // Si el proxy funciona, podemos usar la URL directamente
+                                // Si no, intentamos con el objeto Image
+                                try {
+                                    doc.addImage(img, 'JPEG', imgX, imgY, finalImgWidth, finalImgHeight);
+                                    console.log('✅ Imagen agregada al PDF:', producto.codigo);
+                                } catch (e) {
+                                    // Si falla, intentar con canvas pero con crossOrigin
+                                    const canvas = document.createElement('canvas');
+                                    const ctx = canvas.getContext('2d');
+                                    canvas.width = img.width;
+                                    canvas.height = img.height;
+                                    ctx.drawImage(img, 0, 0);
+                                    const imgData = canvas.toDataURL('image/jpeg', 0.8);
+                                    doc.addImage(imgData, 'JPEG', imgX, imgY, finalImgWidth, finalImgHeight);
+                                    console.log('✅ Imagen agregada al PDF (canvas):', producto.codigo);
+                                }
                             } catch (e) {
                                 console.error('Error agregando imagen al PDF:', e);
-                                doc.setFillColor(255, 230, 240);
-                                doc.roundedRect(x + 5, y + 5, cardWidth - 10, 30, 2, 2, 'F');
+                                // Placeholder con tamaño fijo
+                                const placeholderWidth = cardWidth - (imgPadding * 2);
+                                const placeholderHeight = imgHeight;
+                                const placeholderX = x + imgPadding;
+                                const placeholderY = y + imgPadding;
+                                
+                                doc.setFillColor(255, 240, 245);
+                                doc.roundedRect(placeholderX, placeholderY, placeholderWidth, placeholderHeight, 2, 2, 'F');
+                                doc.setDrawColor(255, 200, 220);
+                                doc.setLineWidth(0.5);
+                                doc.roundedRect(placeholderX, placeholderY, placeholderWidth, placeholderHeight, 2, 2);
+                                doc.setFontSize(7);
+                                doc.setTextColor(200, 180, 190);
+                                doc.text('Error', x + cardWidth / 2, placeholderY + (placeholderHeight / 2), { align: 'center' });
                             }
                             resolve();
                         };
                         
-                        img.onerror = () => {
+                        img.onerror = (error) => {
                             clearTimeout(timeout);
-                            // Si la imagen falla, dibujar un placeholder
-                            doc.setFillColor(255, 230, 240);
-                            doc.roundedRect(x + 5, y + 5, cardWidth - 10, 30, 2, 2, 'F');
-                            doc.setFontSize(8);
-                            doc.setTextColor(200, 200, 200);
-                            doc.text('Sin imagen', x + cardWidth / 2, y + 20, { align: 'center' });
+                            console.error('Error cargando imagen:', finalImgUrl, error);
+                            // Si la imagen falla, dibujar un placeholder con tamaño fijo
+                            const placeholderWidth = cardWidth - (imgPadding * 2);
+                            const placeholderHeight = imgHeight;
+                            const placeholderX = x + imgPadding;
+                            const placeholderY = y + imgPadding;
+                            
+                            doc.setFillColor(255, 240, 245);
+                            doc.roundedRect(placeholderX, placeholderY, placeholderWidth, placeholderHeight, 2, 2, 'F');
+                            doc.setDrawColor(255, 200, 220);
+                            doc.setLineWidth(0.5);
+                            doc.roundedRect(placeholderX, placeholderY, placeholderWidth, placeholderHeight, 2, 2);
+                            doc.setFontSize(7);
+                            doc.setTextColor(200, 180, 190);
+                            doc.text('Sin imagen', x + cardWidth / 2, placeholderY + (placeholderHeight / 2), { align: 'center' });
                             resolve();
                         };
                         
-                        img.src = imgUrl;
+                        // Configurar crossOrigin para permitir CORS si es necesario
+                        if (finalImgUrl.includes('weserv.nl') || finalImgUrl.includes('http')) {
+                            img.crossOrigin = 'anonymous';
+                        }
+                        
+                        img.src = finalImgUrl;
                     });
                 }
             } catch (error) {
                 console.error('Error cargando imagen:', error);
-                // Dibujar placeholder en caso de error
-                doc.setFillColor(255, 230, 240);
-                doc.roundedRect(x + 5, y + 5, cardWidth - 10, 30, 2, 2, 'F');
+                // Dibujar placeholder en caso de error con tamaño fijo
+                const placeholderWidth = cardWidth - (imgPadding * 2);
+                const placeholderHeight = imgHeight;
+                const placeholderX = x + imgPadding;
+                const placeholderY = y + imgPadding;
+                
+                doc.setFillColor(255, 240, 245);
+                doc.roundedRect(placeholderX, placeholderY, placeholderWidth, placeholderHeight, 2, 2, 'F');
+                doc.setDrawColor(255, 200, 220);
+                doc.setLineWidth(0.5);
+                doc.roundedRect(placeholderX, placeholderY, placeholderWidth, placeholderHeight, 2, 2);
+                doc.setFontSize(7);
+                doc.setTextColor(200, 180, 190);
+                doc.text('Error', x + cardWidth / 2, placeholderY + (placeholderHeight / 2), { align: 'center' });
             }
             
-            // Código del producto
-            doc.setFontSize(9);
-            doc.setTextColor(100, 100, 100);
-            doc.text(producto.codigo, x + cardWidth / 2, y + 42, { align: 'center' });
+            // Código del producto - posición fija después del área de imagen
+            const codeY = y + imgPadding + imgHeight + 8; // 4mm después del área de imagen (reducido)
+            doc.setFontSize(7); // Reducido
+            doc.setTextColor(120, 120, 120);
+            doc.setFont(undefined, 'normal');
+            doc.text(producto.codigo, x + cardWidth / 2, codeY, { align: 'center' });
             
-            // Precio
-            doc.setFontSize(14);
+            // Precio - posición fija después del código
+            const priceY = codeY + 8; // 4mm después del código (reducido)
+            doc.setFontSize(14); // Reducido ligeramente
             doc.setTextColor(255, 105, 180); // Rosa
             doc.setFont(undefined, 'bold');
-            doc.text(`$${parseFloat(producto.precioVenta).toFixed(2)}`, x + cardWidth / 2, y + 52, { align: 'center' });
+            doc.text(`$${parseFloat(producto.precioVenta).toFixed(2)}`, x + cardWidth / 2, priceY, { align: 'center' });
             doc.setFont(undefined, 'normal');
             
             // Mover a la siguiente posición
