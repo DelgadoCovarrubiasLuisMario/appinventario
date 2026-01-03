@@ -9,7 +9,10 @@
 <body>
     <div class="container">
         <header>
-            <h1>📦 Sistema de Inventario</h1>
+            <div class="logo-container">
+                <img src="Logo.jpeg" alt="Logo" class="logo">
+            </div>
+            <h1>Sistema de Inventario</h1>
             <nav class="tabs">
                 <button class="tab-btn active" data-section="inventario">Inventario</button>
                 <button class="tab-btn" data-section="catalogo">Catálogo</button>
@@ -34,6 +37,7 @@
             <section id="catalogo" class="section">
                 <div class="section-header">
                     <h2>Catálogo</h2>
+                    <button class="btn btn-primary" onclick="exportCatalogoToPDF()">📄 Exportar a PDF</button>
                 </div>
                 
                 <div class="catalogo-grid" id="catalogoGrid">
@@ -64,8 +68,12 @@
             <h2>Agregar Producto</h2>
             <form id="addProductForm" onsubmit="addProduct(event)">
                 <div class="form-group">
-                    <label>Foto (URL):</label>
-                    <input type="url" id="productFoto" placeholder="https://ejemplo.com/imagen.jpg" required>
+                    <label>Foto:</label>
+                    <div style="display: flex; gap: 10px; align-items: flex-start;">
+                        <input type="text" id="productFoto" placeholder="URL de imagen o selecciona desde Google Drive" required style="flex: 1;">
+                        <button type="button" class="btn btn-primary btn-small" onclick="pickFromGoogleDrive('productFoto')" style="white-space: nowrap;">📁 Google Drive</button>
+                    </div>
+                    <small class="form-help">Haz clic en "Google Drive" para seleccionar una imagen directamente desde tu cuenta.</small>
                 </div>
                 <div class="form-group">
                     <label>Código del Producto:</label>
@@ -83,6 +91,10 @@
                     <label>Cantidad:</label>
                     <input type="number" id="productCantidad" min="0" required>
                 </div>
+                <div class="form-group">
+                    <label>Comentarios / Especificaciones:</label>
+                    <textarea id="productComentarios" rows="4" placeholder="Agregar especificaciones, detalles o comentarios del producto..."></textarea>
+                </div>
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">Agregar</button>
                     <button type="button" class="btn btn-secondary" onclick="closeModal('addProductModal')">Cancelar</button>
@@ -99,8 +111,12 @@
             <form id="editProductForm" onsubmit="updateProduct(event)">
                 <input type="hidden" id="editProductId">
                 <div class="form-group">
-                    <label>Foto (URL):</label>
-                    <input type="url" id="editProductFoto" required>
+                    <label>Foto:</label>
+                    <div style="display: flex; gap: 10px; align-items: flex-start;">
+                        <input type="text" id="editProductFoto" placeholder="URL de imagen o selecciona desde Google Drive" required style="flex: 1;">
+                        <button type="button" class="btn btn-primary btn-small" onclick="pickFromGoogleDrive('editProductFoto')" style="white-space: nowrap;">📁 Google Drive</button>
+                    </div>
+                    <small class="form-help">Haz clic en "Google Drive" para seleccionar una imagen directamente desde tu cuenta.</small>
                 </div>
                 <div class="form-group">
                     <label>Código del Producto:</label>
@@ -117,6 +133,10 @@
                 <div class="form-group">
                     <label>Cantidad:</label>
                     <input type="number" id="editProductCantidad" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label>Comentarios / Especificaciones:</label>
+                    <textarea id="editProductComentarios" rows="4" placeholder="Agregar especificaciones, detalles o comentarios del producto..."></textarea>
                 </div>
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">Guardar</button>
@@ -226,6 +246,13 @@
         </div>
     </div>
 
+    <!-- Google APIs -->
+    <script src="https://apis.google.com/js/api.js" onload="gapiLoaded()" defer></script>
+    <script src="https://accounts.google.com/gsi/client" onload="gisLoaded()" defer></script>
+    
+    <!-- Librerías para PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

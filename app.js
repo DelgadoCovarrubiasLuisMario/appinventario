@@ -70,10 +70,13 @@ function loadInventario() {
     
     grid.innerHTML = productos.map(producto => `
         <div class="product-card">
-            <img src="${producto.foto || 'https://via.placeholder.com/300x200?text=Sin+Imagen'}" 
+            <img src="${convertImageUrl(producto.foto) || 'https://via.placeholder.com/300x200/FFB6C1/FFFFFF?text=Sin+Imagen'}" 
                  alt="${producto.codigo}" 
                  class="product-image"
-                 onerror="this.src='https://via.placeholder.com/300x200?text=Sin+Imagen'">
+                 loading="lazy"
+                 onerror="this.onerror=null; this.src='https://via.placeholder.com/300x200/FFB6C1/FFFFFF?text=Sin+Imagen';"
+                 style="background: #FFE4E9; display: block;"
+                 referrerpolicy="no-referrer">
             <div class="product-info">
                 <h3>${producto.codigo}</h3>
                 <div class="product-detail">
@@ -88,6 +91,12 @@ function loadInventario() {
                     <label>Precio Venta:</label>
                     <span>$${parseFloat(producto.precioVenta).toFixed(2)}</span>
                 </div>
+                ${producto.comentarios ? `
+                <div class="product-comentarios">
+                    <label>Especificaciones:</label>
+                    <p>${producto.comentarios}</p>
+                </div>
+                ` : ''}
                 <div class="product-actions">
                     <button class="btn btn-warning" onclick="editProduct('${producto.id}')">Editar</button>
                     <button class="btn btn-danger" onclick="deleteProduct('${producto.id}')">Eliminar</button>
@@ -122,6 +131,7 @@ function addProduct(event) {
         precioCompra: parseFloat(document.getElementById('productPrecioCompra').value),
         precioVenta: parseFloat(document.getElementById('productPrecioVenta').value),
         cantidad: parseInt(document.getElementById('productCantidad').value),
+        comentarios: document.getElementById('productComentarios').value || '',
         fechaCreacion: new Date().toISOString()
     };
     
@@ -149,6 +159,7 @@ function editProduct(id) {
     document.getElementById('editProductPrecioCompra').value = producto.precioCompra;
     document.getElementById('editProductPrecioVenta').value = producto.precioVenta;
     document.getElementById('editProductCantidad').value = producto.cantidad;
+    document.getElementById('editProductComentarios').value = producto.comentarios || '';
     
     document.getElementById('editProductModal').classList.add('active');
 }
@@ -168,7 +179,8 @@ function updateProduct(event) {
         codigo: document.getElementById('editProductCodigo').value,
         precioCompra: parseFloat(document.getElementById('editProductPrecioCompra').value),
         precioVenta: parseFloat(document.getElementById('editProductPrecioVenta').value),
-        cantidad: parseInt(document.getElementById('editProductCantidad').value)
+        cantidad: parseInt(document.getElementById('editProductCantidad').value),
+        comentarios: document.getElementById('editProductComentarios').value || ''
     };
     
     saveProductos(productos);
@@ -207,16 +219,131 @@ function loadCatalogo() {
     
     grid.innerHTML = productos.map(producto => `
         <div class="catalogo-card">
-            <img src="${producto.foto || 'https://via.placeholder.com/300x200?text=Sin+Imagen'}" 
+            <img src="${convertImageUrl(producto.foto) || 'https://via.placeholder.com/300x200/FFB6C1/FFFFFF?text=Sin+Imagen'}" 
                  alt="${producto.codigo}" 
                  class="catalogo-image"
-                 onerror="this.src='https://via.placeholder.com/300x200?text=Sin+Imagen'">
+                 loading="lazy"
+                 onerror="this.onerror=null; this.src='https://via.placeholder.com/300x200/FFB6C1/FFFFFF?text=Sin+Imagen';"
+                 style="background: #FFE4E9; display: block;"
+                 referrerpolicy="no-referrer">
             <div class="catalogo-info">
                 <div class="codigo">${producto.codigo}</div>
                 <div class="precio">$${parseFloat(producto.precioVenta).toFixed(2)}</div>
             </div>
         </div>
     `).join('');
+}
+
+async function exportCatalogoToPDF() {
+    const productos = getProductos();
+    
+    if (productos.length === 0) {
+        showNotification('No hay productos en el catálogo para exportar');
+        return;
+    }
+    
+    showNotification('Generando PDF del catálogo...');
+    
+    try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('p', 'mm', 'a4');
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 15;
+        const cardWidth = (pageWidth - 3 * margin) / 2;
+        const cardHeight = 60;
+        let x = margin;
+        let y = margin + 20; // Espacio para el título
+        
+        // Título
+        doc.setFontSize(20);
+        doc.setTextColor(255, 105, 180); // Rosa
+        doc.text('Catálogo de Productos', pageWidth / 2, margin + 10, { align: 'center' });
+        
+        // Fecha
+        doc.setFontSize(10);
+        doc.setTextColor(100, 100, 100);
+        const fecha = new Date().toLocaleDateString('es-ES');
+        doc.text(`Fecha: ${fecha}`, pageWidth / 2, margin + 18, { align: 'center' });
+        
+        y = margin + 30;
+        
+        // Procesar cada producto
+        for (let i = 0; i < productos.length; i++) {
+            const producto = productos[i];
+            
+            // Verificar si necesitamos una nueva página
+            if (y + cardHeight > pageHeight - margin) {
+                doc.addPage();
+                y = margin;
+                x = margin;
+            }
+            
+            // Dibujar borde de la tarjeta
+            doc.setDrawColor(200, 200, 200);
+            doc.setLineWidth(0.5);
+            doc.roundedRect(x, y, cardWidth, cardHeight, 2, 2);
+            
+            // Cargar y agregar imagen
+            try {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                
+                await new Promise((resolve, reject) => {
+                    img.onload = () => {
+                        const imgWidth = cardWidth - 10;
+                        const imgHeight = (img.height / img.width) * imgWidth;
+                        const maxImgHeight = 35;
+                        const finalImgHeight = Math.min(imgHeight, maxImgHeight);
+                        const finalImgWidth = (img.width / img.height) * finalImgHeight;
+                        const imgX = x + (cardWidth - finalImgWidth) / 2;
+                        const imgY = y + 5;
+                        
+                        doc.addImage(img, 'JPEG', imgX, imgY, finalImgWidth, finalImgHeight);
+                        resolve();
+                    };
+                    img.onerror = () => {
+                        // Si la imagen falla, dibujar un placeholder
+                        doc.setFillColor(240, 240, 240);
+                        doc.roundedRect(x + 5, y + 5, cardWidth - 10, 30, 2, 2, 'F');
+                        doc.setFontSize(8);
+                        doc.setTextColor(150, 150, 150);
+                        doc.text('Sin imagen', x + cardWidth / 2, y + 20, { align: 'center' });
+                        resolve();
+                    };
+                    img.src = producto.foto || '';
+                });
+            } catch (error) {
+                console.error('Error cargando imagen:', error);
+            }
+            
+            // Código del producto
+            doc.setFontSize(9);
+            doc.setTextColor(100, 100, 100);
+            doc.text(producto.codigo, x + cardWidth / 2, y + 42, { align: 'center' });
+            
+            // Precio
+            doc.setFontSize(14);
+            doc.setTextColor(255, 105, 180); // Rosa
+            doc.setFont(undefined, 'bold');
+            doc.text(`$${parseFloat(producto.precioVenta).toFixed(2)}`, x + cardWidth / 2, y + 52, { align: 'center' });
+            doc.setFont(undefined, 'normal');
+            
+            // Mover a la siguiente posición
+            x += cardWidth + margin;
+            if (x + cardWidth > pageWidth - margin) {
+                x = margin;
+                y += cardHeight + margin;
+            }
+        }
+        
+        // Guardar el PDF
+        doc.save(`Catalogo_${new Date().toISOString().split('T')[0]}.pdf`);
+        showNotification('PDF del catálogo generado exitosamente');
+    } catch (error) {
+        console.error('Error generando PDF:', error);
+        showNotification('Error al generar el PDF. Por favor intenta de nuevo.');
+    }
 }
 
 // ========== VENTAS ==========
@@ -248,6 +375,7 @@ function loadVentas() {
                         <p><strong>Fecha:</strong> ${formatDate(venta.fecha)}</p>
                     </div>
                     <div class="venta-actions">
+                        <button class="btn btn-primary" onclick="exportVentaToPDF('${venta.id}')">📄 Ticket PDF</button>
                         <button class="btn btn-success" onclick="openAddAbonoModal('${venta.id}')">+ Abono</button>
                         <button class="btn btn-warning" onclick="editSale('${venta.id}')">Editar</button>
                         <button class="btn btn-danger" onclick="deleteSale('${venta.id}')">Eliminar</button>
@@ -444,6 +572,176 @@ function deleteAbono(id) {
     showNotification('Abono eliminado');
 }
 
+async function exportVentaToPDF(ventaId) {
+    const ventas = getVentas();
+    const abonos = getAbonos();
+    const productos = getProductos();
+    const venta = ventas.find(v => v.id === ventaId);
+    
+    if (!venta) {
+        showNotification('Venta no encontrada');
+        return;
+    }
+    
+    const producto = productos.find(p => p.id === venta.productoId);
+    const ventaAbonos = abonos.filter(a => a.ventaId === venta.id);
+    const totalAbonado = ventaAbonos.reduce((sum, a) => sum + a.monto, 0);
+    const pendiente = venta.total - totalAbonado;
+    
+    showNotification('Generando ticket PDF...');
+    
+    try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('p', 'mm', [80, 200]); // Tamaño de ticket (ancho x alto)
+        const pageWidth = doc.internal.pageSize.getWidth();
+        let y = 10;
+        
+        // Cargar y agregar logo
+        try {
+            const logoImg = new Image();
+            logoImg.crossOrigin = 'anonymous';
+            
+            await new Promise((resolve) => {
+                const timeout = setTimeout(() => {
+                    y += 10;
+                    resolve();
+                }, 3000); // Timeout de 3 segundos
+                
+                logoImg.onload = () => {
+                    clearTimeout(timeout);
+                    try {
+                        const logoWidth = 30;
+                        const logoHeight = (logoImg.height / logoImg.width) * logoWidth;
+                        const logoX = (pageWidth - logoWidth) / 2;
+                        doc.addImage(logoImg, 'JPEG', logoX, y, logoWidth, logoHeight);
+                        y += logoHeight + 5;
+                    } catch (e) {
+                        console.error('Error agregando logo al PDF:', e);
+                    }
+                    resolve();
+                };
+                logoImg.onerror = () => {
+                    clearTimeout(timeout);
+                    y += 10;
+                    resolve();
+                };
+                logoImg.src = 'Logo.jpeg';
+            });
+        } catch (error) {
+            console.error('Error cargando logo:', error);
+            y += 10;
+        }
+        
+        // Línea separadora
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.5);
+        doc.line(5, y, pageWidth - 5, y);
+        y += 8;
+        
+        // Título "TICKET DE VENTA"
+        doc.setFontSize(12);
+        doc.setTextColor(255, 105, 180); // Rosa
+        doc.setFont(undefined, 'bold');
+        doc.text('TICKET DE VENTA', pageWidth / 2, y, { align: 'center' });
+        y += 8;
+        
+        // Línea separadora
+        doc.line(5, y, pageWidth - 5, y);
+        y += 8;
+        
+        // Información de la venta
+        doc.setFontSize(9);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(0, 0, 0);
+        
+        doc.setFont(undefined, 'bold');
+        doc.text('Cliente:', 10, y);
+        doc.setFont(undefined, 'normal');
+        doc.text(venta.cliente, 35, y);
+        y += 6;
+        
+        doc.setFont(undefined, 'bold');
+        doc.text('Fecha:', 10, y);
+        doc.setFont(undefined, 'normal');
+        doc.text(formatDate(venta.fecha), 35, y);
+        y += 6;
+        
+        doc.setFont(undefined, 'bold');
+        doc.text('Producto:', 10, y);
+        doc.setFont(undefined, 'normal');
+        doc.text(producto ? producto.codigo : 'N/A', 35, y);
+        y += 6;
+        
+        doc.setFont(undefined, 'bold');
+        doc.text('Cantidad:', 10, y);
+        doc.setFont(undefined, 'normal');
+        doc.text(venta.cantidad.toString(), 35, y);
+        y += 8;
+        
+        // Línea separadora
+        doc.line(5, y, pageWidth - 5, y);
+        y += 8;
+        
+        // Totales
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
+        doc.text('SUBTOTAL:', 10, y);
+        doc.text(`$${parseFloat(venta.total).toFixed(2)}`, pageWidth - 10, y, { align: 'right' });
+        y += 6;
+        
+        if (totalAbonado > 0) {
+            doc.setFont(undefined, 'normal');
+            doc.text('Abonado:', 10, y);
+            doc.text(`$${parseFloat(totalAbonado).toFixed(2)}`, pageWidth - 10, y, { align: 'right' });
+            y += 6;
+            
+            doc.setFont(undefined, 'bold');
+            doc.text('PENDIENTE:', 10, y);
+            doc.text(`$${parseFloat(pendiente).toFixed(2)}`, pageWidth - 10, y, { align: 'right' });
+            y += 8;
+        } else {
+            y += 6;
+        }
+        
+        // Línea separadora
+        doc.setDrawColor(100, 100, 100);
+        doc.setLineWidth(1);
+        doc.line(5, y, pageWidth - 5, y);
+        y += 10;
+        
+        // "Gracias por su compra" en grande
+        doc.setFontSize(16);
+        doc.setTextColor(255, 105, 180); // Rosa
+        doc.setFont(undefined, 'bold');
+        doc.text('¡GRACIAS POR', pageWidth / 2, y, { align: 'center' });
+        y += 8;
+        doc.text('SU COMPRA!', pageWidth / 2, y, { align: 'center' });
+        y += 8;
+        
+        // Línea final
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.5);
+        doc.line(5, y, pageWidth - 5, y);
+        y += 5;
+        
+        // Información adicional
+        doc.setFontSize(7);
+        doc.setTextColor(150, 150, 150);
+        doc.setFont(undefined, 'normal');
+        doc.text('Este es un comprobante de venta', pageWidth / 2, y, { align: 'center' });
+        y += 4;
+        doc.text('Válido para efectos contables', pageWidth / 2, y, { align: 'center' });
+        
+        // Guardar el PDF
+        const fileName = `Ticket_Venta_${venta.cliente.replace(/\s+/g, '_')}_${venta.fecha}.pdf`;
+        doc.save(fileName);
+        showNotification('Ticket PDF generado exitosamente');
+    } catch (error) {
+        console.error('Error generando ticket PDF:', error);
+        showNotification('Error al generar el ticket PDF. Por favor intenta de nuevo.');
+    }
+}
+
 function updateProductSelects(selectId = null) {
     const productos = getProductos();
     const selects = selectId 
@@ -487,6 +785,226 @@ function updateProductSelects(selectId = null) {
             saleProducto.addEventListener('change', updateTotal);
             saleCantidad.addEventListener('input', updateTotal);
         }
+    }
+}
+
+// ========== GOOGLE DRIVE ==========
+
+// Configuración de Google Drive API
+// NOTA: Necesitas obtener un API Key y Client ID de Google Cloud Console
+// Ve a: https://console.cloud.google.com/
+// 1. Crea un proyecto
+// 2. Habilita Google Drive API y Google Picker API
+// 3. Crea credenciales OAuth 2.0
+// 4. Agrega tu dominio a los orígenes autorizados
+
+const GOOGLE_API_KEY = 'AIzaSyCkBj1JGV3Fj46AIC_7ohPvcFd0kpouGgw'; // Reemplaza con tu API Key
+const GOOGLE_CLIENT_ID = '1094180131744-0ae4v8llls981fm482rairql3bvsph8b.apps.googleusercontent.com'; // Reemplaza con tu Client ID
+const DISCOVERY_DOCS = ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'];
+const SCOPES = 'https://www.googleapis.com/auth/drive.readonly';
+
+let tokenClient;
+let gapiInited = false;
+let gisInited = false;
+
+// Inicializar Google APIs
+function gapiLoaded() {
+    gapi.load('client:picker', initializeGapi);
+}
+
+function initializeGapi() {
+    gapi.client.init({
+        apiKey: GOOGLE_API_KEY,
+        discoveryDocs: DISCOVERY_DOCS,
+    }).then(() => {
+        gapiInited = true;
+        maybeEnablePicker();
+    }).catch((error) => {
+        console.error('Error inicializando Google API:', error);
+        // Si no hay API key configurado, usar método alternativo
+        if (GOOGLE_API_KEY === 'YOUR_API_KEY') {
+            console.warn('Google API Key no configurado. Usando método alternativo.');
+        }
+    });
+}
+
+function gisLoaded() {
+    tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_CLIENT_ID,
+        scope: SCOPES,
+        callback: '', // Se define cuando se llama
+        // Nota: redirect_uri se determina automáticamente desde window.location
+        // Asegúrate de que la URL actual esté en los Authorized redirect URIs
+    });
+    gisInited = true;
+    maybeEnablePicker();
+}
+
+function maybeEnablePicker() {
+    if (gapiInited && gisInited) {
+        // APIs listas
+    }
+}
+
+// Función principal para seleccionar archivo de Google Drive
+function pickFromGoogleDrive(inputId) {
+    // Si no hay credenciales configuradas, usar método alternativo
+    if (GOOGLE_API_KEY === 'YOUR_API_KEY' || GOOGLE_CLIENT_ID === 'YOUR_CLIENT_ID') {
+        showNotification('Configura tu API Key y Client ID de Google. Por ahora puedes pegar el link manualmente.');
+        // Método alternativo: abrir Google Drive en nueva ventana
+        const input = document.getElementById(inputId);
+        const driveUrl = prompt('Pega el link de Google Drive de tu imagen:');
+        if (driveUrl) {
+            convertDriveLinkToDirect(driveUrl, input);
+        }
+        return;
+    }
+
+    if (!gapiInited || !gisInited) {
+        showNotification('Cargando Google Drive... Por favor espera un momento.');
+        return;
+    }
+
+    tokenClient.callback = async (response) => {
+        if (response.error !== undefined) {
+            showNotification('Error al autenticar con Google Drive');
+            return;
+        }
+        
+        createPicker(inputId);
+    };
+
+    if (gapi.client.getToken() === null) {
+        tokenClient.requestAccessToken({ prompt: 'consent' });
+    } else {
+        tokenClient.requestAccessToken({ prompt: '' });
+    }
+}
+
+function createPicker(inputId) {
+    const view = new google.picker.DocsView(google.picker.ViewId.IMAGES);
+    view.setMimeTypes('image/png,image/jpeg,image/jpg,image/gif,image/webp');
+    view.setSelectFolderEnabled(false);
+
+    const picker = new google.picker.PickerBuilder()
+        .enableFeature(google.picker.Feature.NAV_HIDDEN)
+        .enableFeature(google.picker.Feature.MULTISELECT_ENABLED)
+        .setAppId(GOOGLE_CLIENT_ID)
+        .setOAuthToken(gapi.client.getToken().access_token)
+        .addView(view)
+        .setCallback((data) => {
+            if (data[google.picker.Response.ACTION] === google.picker.Action.PICKED) {
+                const fileId = data.docs[0].id;
+                const input = document.getElementById(inputId);
+                
+                // Obtener el link directo de la imagen
+                getDirectImageUrl(fileId, input);
+            }
+        })
+        .build();
+    
+    picker.setVisible(true);
+}
+
+async function getDirectImageUrl(fileId, input) {
+    try {
+        // Intentar obtener información del archivo
+        const response = await gapi.client.drive.files.get({
+            fileId: fileId,
+            fields: 'webViewLink, webContentLink, thumbnailLink, permissions'
+        });
+        
+        // Intentar compartir el archivo públicamente si no lo está
+        try {
+            await gapi.client.drive.permissions.create({
+                fileId: fileId,
+                resource: {
+                    role: 'reader',
+                    type: 'anyone'
+                }
+            });
+            console.log('Archivo compartido públicamente');
+        } catch (permError) {
+            // Si ya está compartido o hay error, continuar
+            console.log('Permiso ya existe o no se pudo compartir:', permError);
+        }
+        
+        // Usar formato de thumbnail que funciona mejor con CORS
+        const thumbnailUrl = `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
+        input.value = thumbnailUrl;
+        showNotification('✅ Imagen seleccionada de Google Drive');
+        
+        // Nota: No verificamos la carga aquí porque puede tener problemas de CORS
+        // El formato de thumbnail debería funcionar si el archivo está compartido
+        return Promise.resolve(true);
+        
+    } catch (error) {
+        console.error('Error obteniendo URL:', error);
+        // Usar método alternativo
+        const directUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
+        const altUrl = `https://lh3.googleusercontent.com/d/${fileId}`;
+        input.value = directUrl;
+        showNotification('⚠️ Imagen seleccionada. Si no se ve, prueba compartir el archivo como "Cualquiera con el link" en Google Drive');
+    }
+}
+
+// Función para convertir URLs de Google Drive a formato que funcione sin CORS
+function convertImageUrl(url) {
+    if (!url) return null;
+    
+    // Si ya es un placeholder u otra URL válida, devolverla tal cual
+    if (url.includes('placeholder') || url.includes('http') && !url.includes('drive.google.com')) {
+        return url;
+    }
+    
+    // Extraer el ID del archivo de Google Drive
+    let fileId = null;
+    
+    // Formato 1: https://drive.google.com/uc?export=view&id=FILE_ID
+    const match1 = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (match1) {
+        fileId = match1[1];
+    }
+    
+    // Formato 2: https://drive.google.com/file/d/FILE_ID/view
+    const match2 = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (match2) {
+        fileId = match2[1];
+    }
+    
+    if (fileId) {
+        // Usar formato de thumbnail que funciona mejor con CORS
+        return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
+    }
+    
+    // Si no se puede convertir, devolver la URL original
+    return url;
+}
+
+// Método alternativo: convertir link de Drive a directo
+function convertDriveLinkToDirect(url, input) {
+    let fileId = null;
+    
+    // Formato 1: https://drive.google.com/file/d/FILE_ID/view?usp=sharing
+    const match1 = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (match1) {
+        fileId = match1[1];
+    }
+    
+    // Formato 2: https://drive.google.com/open?id=FILE_ID
+    const match2 = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (match2 && !fileId) {
+        fileId = match2[1];
+    }
+    
+    if (fileId) {
+        // Usar formato de thumbnail que evita problemas de CORS
+        const thumbnailLink = `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
+        input.value = thumbnailLink;
+        showNotification('Link de Google Drive convertido exitosamente');
+    } else {
+        input.value = url;
+        showNotification('Link guardado. Si es de Google Drive, asegúrate de compartirlo como "Cualquiera con el link"');
     }
 }
 
