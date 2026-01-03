@@ -1,4 +1,5 @@
 // Datos almacenados en localStorage
+// Actualizado: función updateSaleTotal agregada
 const STORAGE_KEYS = {
     PRODUCTOS: 'inventario_productos',
     VENTAS: 'inventario_ventas',
