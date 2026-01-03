@@ -286,35 +286,68 @@ async function exportCatalogoToPDF() {
             
             // Cargar y agregar imagen
             try {
-                const img = new Image();
-                img.crossOrigin = 'anonymous';
-                
-                await new Promise((resolve, reject) => {
-                    img.onload = () => {
-                        const imgWidth = cardWidth - 10;
-                        const imgHeight = (img.height / img.width) * imgWidth;
-                        const maxImgHeight = 35;
-                        const finalImgHeight = Math.min(imgHeight, maxImgHeight);
-                        const finalImgWidth = (img.width / img.height) * finalImgHeight;
-                        const imgX = x + (cardWidth - finalImgWidth) / 2;
-                        const imgY = y + 5;
+                const imgUrl = convertImageUrl(producto.foto);
+                if (!imgUrl || !imgUrl.includes('drive.google.com') && !imgUrl.includes('http')) {
+                    // Si no hay imagen válida, dibujar placeholder
+                    doc.setFillColor(255, 230, 240);
+                    doc.roundedRect(x + 5, y + 5, cardWidth - 10, 30, 2, 2, 'F');
+                    doc.setFontSize(8);
+                    doc.setTextColor(200, 200, 200);
+                    doc.text('Sin imagen', x + cardWidth / 2, y + 20, { align: 'center' });
+                } else {
+                    const img = new Image();
+                    // No usar crossOrigin para evitar problemas con Google Drive
+                    
+                    await new Promise((resolve) => {
+                        const timeout = setTimeout(() => {
+                            // Timeout después de 5 segundos
+                            doc.setFillColor(255, 230, 240);
+                            doc.roundedRect(x + 5, y + 5, cardWidth - 10, 30, 2, 2, 'F');
+                            doc.setFontSize(8);
+                            doc.setTextColor(200, 200, 200);
+                            doc.text('Cargando...', x + cardWidth / 2, y + 20, { align: 'center' });
+                            resolve();
+                        }, 5000);
                         
-                        doc.addImage(img, 'JPEG', imgX, imgY, finalImgWidth, finalImgHeight);
-                        resolve();
-                    };
-                    img.onerror = () => {
-                        // Si la imagen falla, dibujar un placeholder
-                        doc.setFillColor(240, 240, 240);
-                        doc.roundedRect(x + 5, y + 5, cardWidth - 10, 30, 2, 2, 'F');
-                        doc.setFontSize(8);
-                        doc.setTextColor(150, 150, 150);
-                        doc.text('Sin imagen', x + cardWidth / 2, y + 20, { align: 'center' });
-                        resolve();
-                    };
-                    img.src = producto.foto || '';
-                });
+                        img.onload = () => {
+                            clearTimeout(timeout);
+                            try {
+                                const imgWidth = cardWidth - 10;
+                                const imgHeight = (img.height / img.width) * imgWidth;
+                                const maxImgHeight = 35;
+                                const finalImgHeight = Math.min(imgHeight, maxImgHeight);
+                                const finalImgWidth = (img.width / img.height) * finalImgHeight;
+                                const imgX = x + (cardWidth - finalImgWidth) / 2;
+                                const imgY = y + 5;
+                                
+                                doc.addImage(img, 'JPEG', imgX, imgY, finalImgWidth, finalImgHeight);
+                            } catch (e) {
+                                console.error('Error agregando imagen al PDF:', e);
+                                doc.setFillColor(255, 230, 240);
+                                doc.roundedRect(x + 5, y + 5, cardWidth - 10, 30, 2, 2, 'F');
+                            }
+                            resolve();
+                        };
+                        
+                        img.onerror = () => {
+                            clearTimeout(timeout);
+                            // Si la imagen falla, dibujar un placeholder
+                            doc.setFillColor(255, 230, 240);
+                            doc.roundedRect(x + 5, y + 5, cardWidth - 10, 30, 2, 2, 'F');
+                            doc.setFontSize(8);
+                            doc.setTextColor(200, 200, 200);
+                            doc.text('Sin imagen', x + cardWidth / 2, y + 20, { align: 'center' });
+                            resolve();
+                        };
+                        
+                        img.src = imgUrl;
+                    });
+                }
             } catch (error) {
                 console.error('Error cargando imagen:', error);
+                // Dibujar placeholder en caso de error
+                doc.setFillColor(255, 230, 240);
+                doc.roundedRect(x + 5, y + 5, cardWidth - 10, 30, 2, 2, 'F');
             }
             
             // Código del producto
@@ -337,8 +370,41 @@ async function exportCatalogoToPDF() {
             }
         }
         
-        // Guardar el PDF
-        doc.save(`Catalogo_${new Date().toISOString().split('T')[0]}.pdf`);
+        // Generar el PDF como blob
+        const pdfBlob = doc.output('blob');
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+        const fileName = `Catalogo_${new Date().toISOString().split('T')[0]}.pdf`;
+        
+        // Intentar usar Web Share API en móviles
+        if (navigator.share && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+            try {
+                const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+                await navigator.share({
+                    title: 'Catálogo de Productos',
+                    text: 'Catálogo de productos',
+                    files: [file]
+                });
+                showNotification('PDF compartido exitosamente');
+                URL.revokeObjectURL(pdfUrl);
+                return;
+            } catch (shareError) {
+                // Si el usuario cancela o hay error, descargar normalmente
+                console.log('Share cancelado o error:', shareError);
+            }
+        }
+        
+        // Opción de descargar o abrir en nueva ventana
+        const link = document.createElement('a');
+        link.href = pdfUrl;
+        link.download = fileName;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Limpiar el URL después de un tiempo
+        setTimeout(() => URL.revokeObjectURL(pdfUrl), 100);
+        
         showNotification('PDF del catálogo generado exitosamente');
     } catch (error) {
         console.error('Error generando PDF:', error);
@@ -599,7 +665,7 @@ async function exportVentaToPDF(ventaId) {
         // Cargar y agregar logo
         try {
             const logoImg = new Image();
-            logoImg.crossOrigin = 'anonymous';
+            // No usar crossOrigin para evitar problemas
             
             await new Promise((resolve) => {
                 const timeout = setTimeout(() => {
@@ -732,9 +798,41 @@ async function exportVentaToPDF(ventaId) {
         y += 4;
         doc.text('Válido para efectos contables', pageWidth / 2, y, { align: 'center' });
         
-        // Guardar el PDF
+        // Generar el PDF como blob
+        const pdfBlob = doc.output('blob');
+        const pdfUrl = URL.createObjectURL(pdfBlob);
         const fileName = `Ticket_Venta_${venta.cliente.replace(/\s+/g, '_')}_${venta.fecha}.pdf`;
-        doc.save(fileName);
+        
+        // Intentar usar Web Share API en móviles
+        if (navigator.share && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+            try {
+                const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+                await navigator.share({
+                    title: 'Ticket de Venta',
+                    text: `Ticket de venta - ${venta.cliente}`,
+                    files: [file]
+                });
+                showNotification('Ticket PDF compartido exitosamente');
+                URL.revokeObjectURL(pdfUrl);
+                return;
+            } catch (shareError) {
+                // Si el usuario cancela o hay error, descargar normalmente
+                console.log('Share cancelado o error:', shareError);
+            }
+        }
+        
+        // Opción de descargar o abrir en nueva ventana
+        const link = document.createElement('a');
+        link.href = pdfUrl;
+        link.download = fileName;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Limpiar el URL después de un tiempo
+        setTimeout(() => URL.revokeObjectURL(pdfUrl), 100);
+        
         showNotification('Ticket PDF generado exitosamente');
     } catch (error) {
         console.error('Error generando ticket PDF:', error);
