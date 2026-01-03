@@ -229,6 +229,9 @@ function loadCatalogo() {
             <div class="catalogo-info">
                 <div class="codigo">${producto.codigo}</div>
                 <div class="precio">$${parseFloat(producto.precioVenta).toFixed(2)}</div>
+                ${producto.comentarios ? `
+                <div class="comentarios-catalogo">${producto.comentarios}</div>
+                ` : ''}
             </div>
         </div>
     `).join('');
@@ -325,12 +328,12 @@ async function exportCatalogoToPDF() {
                     // Usar un proxy de imágenes para evitar problemas de CORS
                     let finalImgUrl = imgUrl;
                     
-                    // Si es de Google Drive, usar un proxy que agregue headers CORS
+                    // Si es de Google Drive, usar proxy directamente para GitHub Pages
                     if (imgUrl.includes('drive.google.com')) {
                         const fileIdMatch = imgUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
                         if (fileIdMatch) {
                             const fileId = fileIdMatch[1];
-                            // Usar proxy de imágenes que maneja CORS
+                            // Usar proxy de imágenes que maneja CORS (necesario para GitHub Pages)
                             finalImgUrl = `https://images.weserv.nl/?url=https://drive.google.com/thumbnail?id=${fileId}&sz=w1000&output=jpg`;
                         }
                     }
@@ -442,10 +445,8 @@ async function exportCatalogoToPDF() {
                             resolve();
                         };
                         
-                        // Configurar crossOrigin para permitir CORS si es necesario
-                        if (finalImgUrl.includes('weserv.nl') || finalImgUrl.includes('http')) {
-                            img.crossOrigin = 'anonymous';
-                        }
+                        // Configurar crossOrigin para permitir CORS (necesario para proxy)
+                        img.crossOrigin = 'anonymous';
                         
                         img.src = finalImgUrl;
                     });
@@ -573,6 +574,24 @@ function loadVentas() {
                         <label>Cantidad</label>
                         <span>${venta.cantidad}</span>
                     </div>
+                    ${venta.subtotal ? `
+                    <div class="venta-detail-item">
+                        <label>Subtotal</label>
+                        <span>$${parseFloat(venta.subtotal).toFixed(2)}</span>
+                    </div>
+                    ` : ''}
+                    ${venta.tipoVenta ? `
+                    <div class="venta-detail-item">
+                        <label>Tipo</label>
+                        <span>${venta.tipoVenta === 'contado' ? 'Contado' : venta.tipoVenta === 'pagos' ? 'A Pagos' : 'Mayoreo'}</span>
+                    </div>
+                    ` : ''}
+                    ${venta.porcentaje ? `
+                    <div class="venta-detail-item">
+                        <label>${venta.tipoVenta === 'pagos' ? 'Aumento' : 'Descuento'}</label>
+                        <span>${venta.porcentaje}%</span>
+                    </div>
+                    ` : ''}
                     <div class="venta-detail-item">
                         <label>Total</label>
                         <span>$${parseFloat(venta.total).toFixed(2)}</span>
@@ -612,8 +631,61 @@ function openAddSaleModal() {
     document.getElementById('addSaleForm').reset();
     document.getElementById('saleFecha').value = new Date().toISOString().split('T')[0];
     document.getElementById('saleAbono').value = 0;
+    document.getElementById('saleTipoVenta').value = 'contado';
+    document.getElementById('salePorcentaje').value = 0;
+    document.getElementById('saleSubtotal').value = '';
+    document.getElementById('saleTotal').value = '';
     updateProductSelects();
     document.getElementById('addSaleModal').classList.add('active');
+}
+
+// Función para actualizar el total de la venta según el tipo y porcentaje
+function updateSaleTotal() {
+    const productoId = document.getElementById('saleProducto').value;
+    const cantidad = parseInt(document.getElementById('saleCantidad').value) || 0;
+    const tipoVenta = document.getElementById('saleTipoVenta').value;
+    const porcentaje = parseFloat(document.getElementById('salePorcentaje').value) || 0;
+    
+    if (!productoId || cantidad === 0) {
+        document.getElementById('saleSubtotal').value = '';
+        document.getElementById('saleTotal').value = '';
+        return;
+    }
+    
+    const productos = getProductos();
+    const producto = productos.find(p => p.id === productoId);
+    
+    if (!producto) {
+        document.getElementById('saleSubtotal').value = '';
+        document.getElementById('saleTotal').value = '';
+        return;
+    }
+    
+    // Calcular subtotal (precio base * cantidad)
+    const subtotal = producto.precioVenta * cantidad;
+    document.getElementById('saleSubtotal').value = subtotal.toFixed(2);
+    
+    // Calcular total según el tipo de venta
+    let total = subtotal;
+    
+    if (tipoVenta === 'contado') {
+        // Descuento: restar porcentaje
+        total = subtotal * (1 - porcentaje / 100);
+        const helpElement = document.getElementById('salePorcentajeHelp');
+        if (helpElement) helpElement.textContent = `Descuento del ${porcentaje}%`;
+    } else if (tipoVenta === 'pagos') {
+        // Aumento: sumar porcentaje
+        total = subtotal * (1 + porcentaje / 100);
+        const helpElement = document.getElementById('salePorcentajeHelp');
+        if (helpElement) helpElement.textContent = `Aumento del ${porcentaje}%`;
+    } else if (tipoVenta === 'mayoreo') {
+        // Descuento: restar porcentaje
+        total = subtotal * (1 - porcentaje / 100);
+        const helpElement = document.getElementById('salePorcentajeHelp');
+        if (helpElement) helpElement.textContent = `Descuento de mayoreo del ${porcentaje}%`;
+    }
+    
+    document.getElementById('saleTotal').value = total.toFixed(2);
 }
 
 function addSale(event) {
@@ -624,6 +696,9 @@ function addSale(event) {
         cliente: document.getElementById('saleCliente').value,
         productoId: document.getElementById('saleProducto').value,
         cantidad: parseInt(document.getElementById('saleCantidad').value),
+        subtotal: parseFloat(document.getElementById('saleSubtotal').value),
+        tipoVenta: document.getElementById('saleTipoVenta').value,
+        porcentaje: parseFloat(document.getElementById('salePorcentaje').value) || 0,
         total: parseFloat(document.getElementById('saleTotal').value),
         fecha: document.getElementById('saleFecha').value
     };
@@ -672,11 +747,70 @@ function editSale(id) {
     document.getElementById('editSaleCliente').value = venta.cliente;
     document.getElementById('editSaleProducto').value = venta.productoId;
     document.getElementById('editSaleCantidad').value = venta.cantidad;
+    document.getElementById('editSaleTipoVenta').value = venta.tipoVenta || 'contado';
+    document.getElementById('editSalePorcentaje').value = venta.porcentaje || 0;
     document.getElementById('editSaleTotal').value = venta.total;
     document.getElementById('editSaleFecha').value = venta.fecha;
     
+    // Calcular y mostrar subtotal
+    if (venta.subtotal) {
+        document.getElementById('editSaleSubtotal').value = venta.subtotal.toFixed(2);
+    } else {
+        // Calcular subtotal si no existe
+        const productos = getProductos();
+        const producto = productos.find(p => p.id === venta.productoId);
+        if (producto) {
+            const subtotal = producto.precioVenta * venta.cantidad;
+            document.getElementById('editSaleSubtotal').value = subtotal.toFixed(2);
+        }
+    }
+    
     updateProductSelects('editSaleProducto');
+    updateEditSaleTotal();
     document.getElementById('editSaleModal').classList.add('active');
+}
+
+// Función para actualizar el total de la venta editada
+function updateEditSaleTotal() {
+    const productoId = document.getElementById('editSaleProducto').value;
+    const cantidad = parseInt(document.getElementById('editSaleCantidad').value) || 0;
+    const tipoVenta = document.getElementById('editSaleTipoVenta').value;
+    const porcentaje = parseFloat(document.getElementById('editSalePorcentaje').value) || 0;
+    
+    if (!productoId || cantidad === 0) {
+        document.getElementById('editSaleSubtotal').value = '';
+        document.getElementById('editSaleTotal').value = '';
+        return;
+    }
+    
+    const productos = getProductos();
+    const producto = productos.find(p => p.id === productoId);
+    
+    if (!producto) {
+        document.getElementById('editSaleSubtotal').value = '';
+        document.getElementById('editSaleTotal').value = '';
+        return;
+    }
+    
+    // Calcular subtotal (precio base * cantidad)
+    const subtotal = producto.precioVenta * cantidad;
+    document.getElementById('editSaleSubtotal').value = subtotal.toFixed(2);
+    
+    // Calcular total según el tipo de venta
+    let total = subtotal;
+    
+    if (tipoVenta === 'contado') {
+        total = subtotal * (1 - porcentaje / 100);
+        document.getElementById('editSalePorcentajeHelp').textContent = `Descuento del ${porcentaje}%`;
+    } else if (tipoVenta === 'pagos') {
+        total = subtotal * (1 + porcentaje / 100);
+        document.getElementById('editSalePorcentajeHelp').textContent = `Aumento del ${porcentaje}%`;
+    } else if (tipoVenta === 'mayoreo') {
+        total = subtotal * (1 - porcentaje / 100);
+        document.getElementById('editSalePorcentajeHelp').textContent = `Descuento de mayoreo del ${porcentaje}%`;
+    }
+    
+    document.getElementById('editSaleTotal').value = total.toFixed(2);
 }
 
 function updateSale(event) {
@@ -693,6 +827,9 @@ function updateSale(event) {
         cliente: document.getElementById('editSaleCliente').value,
         productoId: document.getElementById('editSaleProducto').value,
         cantidad: parseInt(document.getElementById('editSaleCantidad').value),
+        subtotal: parseFloat(document.getElementById('editSaleSubtotal').value),
+        tipoVenta: document.getElementById('editSaleTipoVenta').value,
+        porcentaje: parseFloat(document.getElementById('editSalePorcentaje').value) || 0,
         total: parseFloat(document.getElementById('editSaleTotal').value),
         fecha: document.getElementById('editSaleFecha').value
     };
@@ -863,16 +1000,42 @@ async function exportVentaToPDF(ventaId) {
         doc.text('Cantidad:', 10, y);
         doc.setFont(undefined, 'normal');
         doc.text(venta.cantidad.toString(), 35, y);
-        y += 8;
+        y += 6;
         
+        // Tipo de venta y porcentaje si existe
+        if (venta.tipoVenta) {
+            const tipoTexto = venta.tipoVenta === 'contado' ? 'Contado' : venta.tipoVenta === 'pagos' ? 'A Pagos' : 'Mayoreo';
+            doc.setFont(undefined, 'bold');
+            doc.text('Tipo:', 10, y);
+            doc.setFont(undefined, 'normal');
+            doc.text(tipoTexto, 35, y);
+            y += 6;
+            
+            if (venta.porcentaje && venta.porcentaje > 0) {
+                const porcentajeTexto = venta.tipoVenta === 'pagos' ? `+${venta.porcentaje}%` : `-${venta.porcentaje}%`;
+                doc.setFont(undefined, 'bold');
+                doc.text('Ajuste:', 10, y);
+                doc.setFont(undefined, 'normal');
+                doc.text(porcentajeTexto, 35, y);
+                y += 6;
+            }
+        }
+        
+        y += 2;
         // Línea separadora
         doc.line(5, y, pageWidth - 5, y);
         y += 8;
         
         // Totales
         doc.setFontSize(10);
+        if (venta.subtotal && venta.subtotal !== venta.total) {
+            doc.setFont(undefined, 'bold');
+            doc.text('SUBTOTAL:', 10, y);
+            doc.text(`$${parseFloat(venta.subtotal).toFixed(2)}`, pageWidth - 10, y, { align: 'right' });
+            y += 6;
+        }
         doc.setFont(undefined, 'bold');
-        doc.text('SUBTOTAL:', 10, y);
+        doc.text('TOTAL:', 10, y);
         doc.text(`$${parseFloat(venta.total).toFixed(2)}`, pageWidth - 10, y, { align: 'right' });
         y += 6;
         
@@ -985,24 +1148,53 @@ function updateProductSelects(selectId = null) {
         }
     });
     
-    // Actualizar total cuando cambia producto o cantidad
+    // Actualizar total cuando cambia producto, cantidad, tipo de venta o porcentaje
     if (selectId !== 'editSaleProducto') {
         const saleProducto = document.getElementById('saleProducto');
         const saleCantidad = document.getElementById('saleCantidad');
+        const saleTipoVenta = document.getElementById('saleTipoVenta');
+        const salePorcentaje = document.getElementById('salePorcentaje');
         
-        if (saleProducto && saleCantidad) {
-            const updateTotal = () => {
-                const productoId = saleProducto.value;
-                const cantidad = parseInt(saleCantidad.value) || 0;
-                const producto = productos.find(p => p.id === productoId);
-                
-                if (producto) {
-                    document.getElementById('saleTotal').value = (producto.precioVenta * cantidad).toFixed(2);
-                }
-            };
-            
-            saleProducto.addEventListener('change', updateTotal);
-            saleCantidad.addEventListener('input', updateTotal);
+        // Remover listeners anteriores para evitar duplicados
+        if (saleProducto) {
+            saleProducto.removeEventListener('change', updateSaleTotal);
+            saleProducto.addEventListener('change', updateSaleTotal);
+        }
+        if (saleCantidad) {
+            saleCantidad.removeEventListener('input', updateSaleTotal);
+            saleCantidad.addEventListener('input', updateSaleTotal);
+        }
+        if (saleTipoVenta) {
+            saleTipoVenta.removeEventListener('change', updateSaleTotal);
+            saleTipoVenta.addEventListener('change', updateSaleTotal);
+        }
+        if (salePorcentaje) {
+            salePorcentaje.removeEventListener('input', updateSaleTotal);
+            salePorcentaje.addEventListener('input', updateSaleTotal);
+        }
+    } else {
+        // Para el modal de edición
+        const editSaleProducto = document.getElementById('editSaleProducto');
+        const editSaleCantidad = document.getElementById('editSaleCantidad');
+        const editSaleTipoVenta = document.getElementById('editSaleTipoVenta');
+        const editSalePorcentaje = document.getElementById('editSalePorcentaje');
+        
+        // Remover listeners anteriores para evitar duplicados
+        if (editSaleProducto) {
+            editSaleProducto.removeEventListener('change', updateEditSaleTotal);
+            editSaleProducto.addEventListener('change', updateEditSaleTotal);
+        }
+        if (editSaleCantidad) {
+            editSaleCantidad.removeEventListener('input', updateEditSaleTotal);
+            editSaleCantidad.addEventListener('input', updateEditSaleTotal);
+        }
+        if (editSaleTipoVenta) {
+            editSaleTipoVenta.removeEventListener('change', updateEditSaleTotal);
+            editSaleTipoVenta.addEventListener('change', updateEditSaleTotal);
+        }
+        if (editSalePorcentaje) {
+            editSalePorcentaje.removeEventListener('input', updateEditSaleTotal);
+            editSalePorcentaje.addEventListener('input', updateEditSaleTotal);
         }
     }
 }
