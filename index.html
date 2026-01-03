@@ -40,6 +40,10 @@
                     <button class="btn btn-primary" onclick="exportCatalogoToPDF()">📄 Exportar a PDF</button>
                 </div>
                 
+                <div class="catalogo-filters">
+                    <!-- Los botones de filtro se generan dinámicamente -->
+                </div>
+                
                 <div class="catalogo-grid" id="catalogoGrid">
                     <!-- Los productos se cargarán aquí -->
                 </div>
@@ -74,6 +78,18 @@
                         <button type="button" class="btn btn-primary btn-small" onclick="pickFromGoogleDrive('productFoto')" style="white-space: nowrap;">📁 Google Drive</button>
                     </div>
                     <small class="form-help">Haz clic en "Google Drive" para seleccionar una imagen directamente desde tu cuenta.</small>
+                </div>
+                <div class="form-group">
+                    <label>Categoría / Sección:</label>
+                    <input type="text" id="productCategoria" placeholder="Ej: Anillos, Collares, Pulseras, etc." required list="categorias-sugeridas">
+                    <datalist id="categorias-sugeridas">
+                        <option value="Anillos">
+                        <option value="Collares">
+                        <option value="Pulseras">
+                        <option value="Aretes">
+                        <option value="Dijes">
+                    </datalist>
+                    <small class="form-help">Puedes escribir cualquier categoría personalizada</small>
                 </div>
                 <div class="form-group">
                     <label>Código del Producto:</label>
@@ -117,6 +133,18 @@
                         <button type="button" class="btn btn-primary btn-small" onclick="pickFromGoogleDrive('editProductFoto')" style="white-space: nowrap;">📁 Google Drive</button>
                     </div>
                     <small class="form-help">Haz clic en "Google Drive" para seleccionar una imagen directamente desde tu cuenta.</small>
+                </div>
+                <div class="form-group">
+                    <label>Categoría / Sección:</label>
+                    <input type="text" id="editProductCategoria" placeholder="Ej: Anillos, Collares, Pulseras, etc." required list="categorias-sugeridas-edit">
+                    <datalist id="categorias-sugeridas-edit">
+                        <option value="Anillos">
+                        <option value="Collares">
+                        <option value="Pulseras">
+                        <option value="Aretes">
+                        <option value="Dijes">
+                    </datalist>
+                    <small class="form-help">Puedes escribir cualquier categoría personalizada</small>
                 </div>
                 <div class="form-group">
                     <label>Código del Producto:</label>

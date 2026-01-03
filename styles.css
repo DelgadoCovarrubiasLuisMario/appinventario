@@ -271,6 +271,63 @@ main {
     margin: 0;
 }
 
+/* Catálogo Filtros */
+.catalogo-filters {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 25px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.filter-btn {
+    padding: 10px 20px;
+    background: #FFF0F5;
+    border: 2px solid #FFB6C1;
+    color: #FF69B4;
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 0.95em;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.filter-btn:hover {
+    background: #FFE4E9;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(255, 182, 193, 0.3);
+}
+
+.filter-btn.active {
+    background: linear-gradient(135deg, #FF91A4 0%, #FFB6C1 100%);
+    color: white;
+    border-color: #FF91A4;
+    box-shadow: 0 4px 15px rgba(255, 182, 193, 0.4);
+}
+
+/* Catálogo Secciones por Categoría */
+.categoria-section {
+    margin-bottom: 40px;
+}
+
+.categoria-title {
+    font-size: 1.8em;
+    color: #FF69B4;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 3px solid #FFB6C1;
+    text-align: center;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.catalogo-grid-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 25px;
+}
+
 /* Catálogo Grid */
 .catalogo-grid {
     display: grid;
@@ -588,22 +645,34 @@ main {
 /* Badge para cantidad */
 .cantidad-badge {
     display: inline-block;
-    background: #FFB6C1;
-    color: white;
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 0.9em;
+    padding: 6px 14px;
+    border-radius: 15px;
+    font-size: 1em;
     font-weight: 600;
     margin-left: 8px;
+    min-width: 40px;
+    text-align: center;
 }
 
-.cantidad-badge.low {
-    background: #FFD1DC;
-    color: #FF69B4;
+/* Rojo: 3 o menos */
+.cantidad-badge.cantidad-baja {
+    background: #ffcdd2;
+    color: #b71c1c;
+    border: 2px solid #d32f2f;
 }
 
-.cantidad-badge.out {
-    background: #FF91A4;
+/* Amarillo: 4-8 */
+.cantidad-badge.cantidad-media {
+    background: #fff9c4;
+    color: #f57f17;
+    border: 2px solid #fbc02d;
+}
+
+/* Verde: 9 o más */
+.cantidad-badge.cantidad-alta {
+    background: #c8e6c9;
+    color: #2e7d32;
+    border: 2px solid #66bb6a;
 }
 
 /* Estado de pago */

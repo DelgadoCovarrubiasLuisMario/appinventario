@@ -108,9 +108,9 @@ function loadInventario() {
 }
 
 function getCantidadClass(cantidad) {
-    if (cantidad === 0) return 'out';
-    if (cantidad < 5) return 'low';
-    return '';
+    if (cantidad <= 3) return 'cantidad-baja'; // Rojo
+    if (cantidad >= 4 && cantidad <= 8) return 'cantidad-media'; // Amarillo
+    return 'cantidad-alta'; // Rosa (9 o más)
 }
 
 function openAddProductModal() {
@@ -128,6 +128,7 @@ function addProduct(event) {
     const producto = {
         id: generateId(),
         foto: document.getElementById('productFoto').value,
+        categoria: document.getElementById('productCategoria').value,
         codigo: document.getElementById('productCodigo').value,
         precioCompra: parseFloat(document.getElementById('productPrecioCompra').value),
         precioVenta: parseFloat(document.getElementById('productPrecioVenta').value),
@@ -156,6 +157,7 @@ function editProduct(id) {
     
     document.getElementById('editProductId').value = producto.id;
     document.getElementById('editProductFoto').value = producto.foto;
+    document.getElementById('editProductCategoria').value = producto.categoria || '';
     document.getElementById('editProductCodigo').value = producto.codigo;
     document.getElementById('editProductPrecioCompra').value = producto.precioCompra;
     document.getElementById('editProductPrecioVenta').value = producto.precioVenta;
@@ -177,6 +179,7 @@ function updateProduct(event) {
     productos[index] = {
         ...productos[index],
         foto: document.getElementById('editProductFoto').value,
+        categoria: document.getElementById('editProductCategoria').value,
         codigo: document.getElementById('editProductCodigo').value,
         precioCompra: parseFloat(document.getElementById('editProductPrecioCompra').value),
         precioVenta: parseFloat(document.getElementById('editProductPrecioVenta').value),
@@ -209,33 +212,116 @@ function deleteProduct(id) {
 
 // ========== CATÁLOGO ==========
 
+let categoriaFiltroActual = 'todos';
+
+function filterCatalogo(categoria) {
+    categoriaFiltroActual = categoria;
+    
+    // Actualizar botones activos
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.categoria === categoria) {
+            btn.classList.add('active');
+        }
+    });
+    
+    loadCatalogo();
+}
+
 function loadCatalogo() {
     const productos = getProductos();
     const grid = document.getElementById('catalogoGrid');
+    const filtersContainer = document.querySelector('.catalogo-filters');
     
     if (productos.length === 0) {
         grid.innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">No hay productos en el catálogo.</p>';
         return;
     }
     
-    grid.innerHTML = productos.map(producto => `
-        <div class="catalogo-card">
-            <img src="${convertImageUrl(producto.foto) || 'https://via.placeholder.com/300x200/FFB6C1/FFFFFF?text=Sin+Imagen'}" 
-                 alt="${producto.codigo}" 
-                 class="catalogo-image"
-                 loading="lazy"
-                 onerror="this.onerror=null; this.src='https://via.placeholder.com/300x200/FFB6C1/FFFFFF?text=Sin+Imagen';"
-                 style="background: #FFE4E9; display: block;"
-                 referrerpolicy="no-referrer">
-            <div class="catalogo-info">
-                <div class="codigo">${producto.codigo}</div>
-                <div class="precio">$${parseFloat(producto.precioVenta).toFixed(2)}</div>
-                ${producto.comentarios ? `
-                <div class="comentarios-catalogo">${producto.comentarios}</div>
-                ` : ''}
+    // Generar botones de filtro dinámicamente basados en las categorías existentes
+    const categoriasUnicas = [...new Set(productos.map(p => p.categoria || 'Sin categoría').filter(c => c))];
+    categoriasUnicas.sort();
+    
+    if (filtersContainer) {
+        let filtersHTML = '<button class="filter-btn active" data-categoria="todos" onclick="filterCatalogo(\'todos\')">Todos</button>';
+        categoriasUnicas.forEach(categoria => {
+            const isActive = categoriaFiltroActual === categoria ? 'active' : '';
+            filtersHTML += `<button class="filter-btn ${isActive}" data-categoria="${categoria}" onclick="filterCatalogo('${categoria}')">${categoria}</button>`;
+        });
+        filtersContainer.innerHTML = filtersHTML;
+    }
+    
+    // Filtrar productos por categoría si hay filtro activo
+    let productosFiltrados = productos;
+    if (categoriaFiltroActual !== 'todos') {
+        productosFiltrados = productos.filter(p => (p.categoria || 'Sin categoría') === categoriaFiltroActual);
+    }
+    
+    if (productosFiltrados.length === 0) {
+        grid.innerHTML = `<p style="text-align: center; color: #666; padding: 40px;">No hay productos en la categoría seleccionada.</p>`;
+        return;
+    }
+    
+    // Si no hay filtro, agrupar por categoría dinámicamente
+    if (categoriaFiltroActual === 'todos') {
+        // Obtener todas las categorías únicas de los productos
+        const categoriasUnicas = [...new Set(productos.map(p => p.categoria || 'Sin categoría').filter(c => c))];
+        categoriasUnicas.sort(); // Ordenar alfabéticamente
+        
+        let html = '';
+        
+        categoriasUnicas.forEach(categoria => {
+            const productosCategoria = productos.filter(p => (p.categoria || 'Sin categoría') === categoria);
+            
+            if (productosCategoria.length > 0) {
+                html += `<div class="categoria-section">
+                    <h3 class="categoria-title">${categoria}</h3>
+                    <div class="catalogo-grid-section">
+                        ${productosCategoria.map(producto => `
+                            <div class="catalogo-card">
+                                <img src="${convertImageUrl(producto.foto) || 'https://via.placeholder.com/300x200/FFB6C1/FFFFFF?text=Sin+Imagen'}" 
+                                     alt="${producto.codigo}" 
+                                     class="catalogo-image"
+                                     loading="lazy"
+                                     onerror="this.onerror=null; this.src='https://via.placeholder.com/300x200/FFB6C1/FFFFFF?text=Sin+Imagen';"
+                                     style="background: #FFE4E9; display: block;"
+                                     referrerpolicy="no-referrer">
+                                <div class="catalogo-info">
+                                    <div class="codigo">${producto.codigo}</div>
+                                    <div class="precio">$${parseFloat(producto.precioVenta).toFixed(2)}</div>
+                                    ${producto.comentarios ? `
+                                    <div class="comentarios-catalogo">${producto.comentarios}</div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>`;
+            }
+        });
+        
+        grid.innerHTML = html;
+    } else {
+        // Mostrar productos filtrados sin agrupar
+        grid.innerHTML = productosFiltrados.map(producto => `
+            <div class="catalogo-card">
+                <img src="${convertImageUrl(producto.foto) || 'https://via.placeholder.com/300x200/FFB6C1/FFFFFF?text=Sin+Imagen'}" 
+                     alt="${producto.codigo}" 
+                     class="catalogo-image"
+                     loading="lazy"
+                     onerror="this.onerror=null; this.src='https://via.placeholder.com/300x200/FFB6C1/FFFFFF?text=Sin+Imagen';"
+                     style="background: #FFE4E9; display: block;"
+                     referrerpolicy="no-referrer">
+                <div class="catalogo-info">
+                    <div class="codigo">${producto.codigo}</div>
+                    <div class="precio">$${parseFloat(producto.precioVenta).toFixed(2)}</div>
+                    ${producto.comentarios ? `
+                    <div class="comentarios-catalogo">${producto.comentarios}</div>
+                    ` : ''}
+                </div>
             </div>
-        </div>
-    `).join('');
+        `).join('');
+    }
 }
 
 async function exportCatalogoToPDF() {
@@ -253,95 +339,170 @@ async function exportCatalogoToPDF() {
         const doc = new jsPDF('p', 'mm', 'a4');
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
-        const margin = 12; // Reducido
-        const cardWidth = (pageWidth - 3 * margin) / 2;
-        const cardHeight = 55; // Altura reducida para tarjetas más compactas
-        const imgHeight = 30; // Altura reducida para imágenes más compactas
-        const imgPadding = 4; // Padding reducido
-        let x = margin;
-        let y = margin + 18; // Espacio reducido para el título
         
-        // Título con mejor diseño
-        doc.setFontSize(20); // Reducido ligeramente
+        // ========== VARIABLES PARA AJUSTAR EL ACOMODO DEL PDF ==========
+        // Edita estas variables para cambiar el diseño del PDF:
+        const margin = 12; // Márgenes de la página (en mm)
+        const cardWidth = (pageWidth - 3 * margin) / 2; // Ancho de cada tarjeta (2 columnas)
+        const cardHeight = 55; // Altura de cada tarjeta de producto (en mm)
+        const imgHeight = 30; // Altura de las imágenes dentro de las tarjetas (en mm)
+        const imgPadding = 4; // Espacio interno alrededor de las imágenes (en mm)
+        // ================================================================
+        
+        let x = margin; // Posición horizontal inicial
+        let y = margin; // Posición vertical inicial
+        
+        // ========== LOGO DEL PDF ==========
+        // Para cambiar el tamaño del logo, edita: logoWidth (línea ~276)
+        // Para cambiar el espacio después del logo, edita: y += logoHeight + 5 (línea ~280)
+        try {
+            await new Promise((resolve, reject) => {
+                const logoImg = new Image();
+                logoImg.crossOrigin = 'anonymous';
+                logoImg.onload = () => {
+                    try {
+                        const logoWidth = 40; // Ancho del logo en mm - EDITA AQUÍ para cambiar tamaño
+                        const logoHeight = (logoImg.height / logoImg.width) * logoWidth; // Mantener proporción
+                        const logoX = (pageWidth - logoWidth) / 2; // Centrado
+                        doc.addImage(logoImg, 'JPEG', logoX, y, logoWidth, logoHeight);
+                        y += logoHeight + 10; // Espacio después del logo - EDITA AQUÍ para cambiar espaciado
+                        resolve();
+                    } catch (error) {
+                        console.error('Error agregando logo al PDF:', error);
+                        y += 10;
+                        resolve();
+                    }
+                };
+                logoImg.onerror = () => {
+                    console.log('Logo no encontrado, continuando sin logo');
+                    y += 10;
+                    resolve();
+                };
+                logoImg.src = 'Logo.jpeg';
+            });
+        } catch (error) {
+            console.error('Error cargando logo:', error);
+            y += 10;
+        }
+        
+        // ========== TÍTULO Y ENCABEZADO ==========
+        // Para cambiar el tamaño del título, edita: setFontSize(20) (línea ~301)
+        // Para cambiar el color del título, edita: setTextColor(255, 105, 180) (línea ~303)
+        // Para cambiar el texto del título, edita: 'Catálogo de Productos' (línea ~304)
+        doc.setFontSize(20); // Tamaño del título - EDITA AQUÍ
         doc.setFont(undefined, 'bold');
-        doc.setTextColor(255, 105, 180); // Rosa
-        doc.text('Catálogo de Productos', pageWidth / 2, margin + 6, { align: 'center' });
+        doc.setTextColor(255, 105, 180); // Color rosa - EDITA AQUÍ (RGB)
+        doc.text('Catálogo de Productos', pageWidth / 2, y, { align: 'center' }); // Texto del título - EDITA AQUÍ
+        y += 6; // Espacio después del título - EDITA AQUÍ
         
         // Línea decorativa bajo el título
-        doc.setDrawColor(255, 182, 193);
-        doc.setLineWidth(0.8);
-        doc.line(pageWidth / 2 - 35, margin + 10, pageWidth / 2 + 35, margin + 10);
+        doc.setDrawColor(255, 182, 193); // Color de la línea - EDITA AQUÍ (RGB)
+        doc.setLineWidth(0.8); // Grosor de la línea - EDITA AQUÍ
+        doc.line(pageWidth / 2 - 35, y, pageWidth / 2 + 35, y); // Longitud de la línea - EDITA AQUÍ (35mm a cada lado)
+        y += 4; // Espacio después de la línea - EDITA AQUÍ
         
         // Fecha
-        doc.setFontSize(8); // Reducido
+        doc.setFontSize(8); // Tamaño de la fecha - EDITA AQUÍ
         doc.setFont(undefined, 'normal');
-        doc.setTextColor(150, 150, 150);
+        doc.setTextColor(150, 150, 150); // Color de la fecha - EDITA AQUÍ (RGB)
         const fecha = new Date().toLocaleDateString('es-ES');
-        doc.text(`Fecha: ${fecha}`, pageWidth / 2, margin + 15, { align: 'center' });
+        doc.text(`Fecha: ${fecha}`, pageWidth / 2, y, { align: 'center' });
         
-        y = margin + 22; // Reducido
+        y += 8; // Espacio antes de los productos - EDITA AQUÍ
         
-        // Procesar cada producto
-        for (let i = 0; i < productos.length; i++) {
-            const producto = productos[i];
+        // Agrupar productos por categoría
+        const categoriasUnicas = [...new Set(productos.map(p => p.categoria || 'Sin categoría').filter(c => c))];
+        categoriasUnicas.sort(); // Ordenar alfabéticamente
+        
+        // Procesar cada categoría
+        for (let catIndex = 0; catIndex < categoriasUnicas.length; catIndex++) {
+            const categoria = categoriasUnicas[catIndex];
+            const productosCategoria = productos.filter(p => (p.categoria || 'Sin categoría') === categoria);
             
-            // Verificar si necesitamos una nueva página
-            if (y + cardHeight > pageHeight - margin) {
+            // Verificar si necesitamos una nueva página para el título de la categoría
+            if (y + 20 > pageHeight - margin) {
                 doc.addPage();
                 y = margin;
                 x = margin;
             }
             
-            // Dibujar borde de la tarjeta con mejor diseño
-            doc.setDrawColor(255, 182, 193); // Rosa pastel
-            doc.setLineWidth(0.3);
+            // Título de la categoría
+            doc.setFontSize(16); // Tamaño del título de categoría
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(255, 105, 180); // Color rosa
+            doc.text(categoria, pageWidth / 2, y, { align: 'center' });
+            y += 6; // Espacio después del título
             
-            // Fondo sutil de la tarjeta
-            doc.setFillColor(255, 250, 250);
-            doc.roundedRect(x, y, cardWidth, cardHeight, 3, 3, 'F');
+            // Línea decorativa bajo el título de categoría
             doc.setDrawColor(255, 182, 193);
-            doc.roundedRect(x, y, cardWidth, cardHeight, 3, 3);
+            doc.setLineWidth(0.8);
+            doc.line(pageWidth / 2 - 30, y, pageWidth / 2 + 30, y);
+            y += 6; // Espacio después de la línea
             
-            // Área fija para la imagen (siempre el mismo tamaño)
-            const imgAreaY = y + imgPadding;
-            const imgAreaHeight = imgHeight;
-            const imgAreaWidth = cardWidth - (imgPadding * 2);
+            // Resetear posición horizontal para las tarjetas
+            x = margin;
             
-            // Cargar y agregar imagen
-            try {
-                const imgUrl = convertImageUrl(producto.foto);
-                if (!imgUrl || (!imgUrl.includes('drive.google.com') && !imgUrl.includes('http'))) {
-                    // Si no hay imagen válida, dibujar placeholder con tamaño fijo
-                    const placeholderWidth = cardWidth - (imgPadding * 2);
-                    const placeholderHeight = imgHeight;
-                    const placeholderX = x + imgPadding;
-                    const placeholderY = y + imgPadding;
-                    
-                    doc.setFillColor(255, 240, 245);
-                    doc.roundedRect(placeholderX, placeholderY, placeholderWidth, placeholderHeight, 2, 2, 'F');
-                    doc.setDrawColor(255, 200, 220);
-                    doc.setLineWidth(0.5);
-                    doc.roundedRect(placeholderX, placeholderY, placeholderWidth, placeholderHeight, 2, 2);
-                    doc.setFontSize(7);
-                    doc.setTextColor(200, 180, 190);
-                    doc.text('Sin imagen', x + cardWidth / 2, placeholderY + (placeholderHeight / 2), { align: 'center' });
-                } else {
-                    // Usar un proxy de imágenes para evitar problemas de CORS
-                    let finalImgUrl = imgUrl;
-                    
-                    // Si es de Google Drive, usar proxy directamente para GitHub Pages
-                    if (imgUrl.includes('drive.google.com')) {
-                        const fileIdMatch = imgUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-                        if (fileIdMatch) {
-                            const fileId = fileIdMatch[1];
-                            // Usar proxy de imágenes que maneja CORS (necesario para GitHub Pages)
-                            finalImgUrl = `https://images.weserv.nl/?url=https://drive.google.com/thumbnail?id=${fileId}&sz=w1000&output=jpg`;
+            // Procesar cada producto de esta categoría
+            for (let i = 0; i < productosCategoria.length; i++) {
+                const producto = productosCategoria[i];
+                
+                // Verificar si necesitamos una nueva página
+                if (y + cardHeight > pageHeight - margin) {
+                    doc.addPage();
+                    y = margin;
+                    x = margin;
+                }
+                
+                // Dibujar borde de la tarjeta con mejor diseño
+                doc.setDrawColor(255, 182, 193); // Rosa pastel
+                doc.setLineWidth(0.3);
+                
+                // Fondo sutil de la tarjeta
+                doc.setFillColor(255, 250, 250);
+                doc.roundedRect(x, y, cardWidth, cardHeight, 3, 3, 'F');
+                doc.setDrawColor(255, 182, 193);
+                doc.roundedRect(x, y, cardWidth, cardHeight, 3, 3);
+                
+                // Área fija para la imagen (siempre el mismo tamaño)
+                const imgAreaY = y + imgPadding;
+                const imgAreaHeight = imgHeight;
+                const imgAreaWidth = cardWidth - (imgPadding * 2);
+                
+                // Cargar y agregar imagen
+                try {
+                    const imgUrl = convertImageUrl(producto.foto);
+                    if (!imgUrl || (!imgUrl.includes('drive.google.com') && !imgUrl.includes('http'))) {
+                        // Si no hay imagen válida, dibujar placeholder con tamaño fijo
+                        const placeholderWidth = cardWidth - (imgPadding * 2);
+                        const placeholderHeight = imgHeight;
+                        const placeholderX = x + imgPadding;
+                        const placeholderY = y + imgPadding;
+                        
+                        doc.setFillColor(255, 240, 245);
+                        doc.roundedRect(placeholderX, placeholderY, placeholderWidth, placeholderHeight, 2, 2, 'F');
+                        doc.setDrawColor(255, 200, 220);
+                        doc.setLineWidth(0.5);
+                        doc.roundedRect(placeholderX, placeholderY, placeholderWidth, placeholderHeight, 2, 2);
+                        doc.setFontSize(7);
+                        doc.setTextColor(200, 180, 190);
+                        doc.text('Sin imagen', x + cardWidth / 2, placeholderY + (placeholderHeight / 2), { align: 'center' });
+                    } else {
+                        // Usar un proxy de imágenes para evitar problemas de CORS
+                        let finalImgUrl = imgUrl;
+                        
+                        // Si es de Google Drive, usar proxy directamente para GitHub Pages
+                        if (imgUrl.includes('drive.google.com')) {
+                            const fileIdMatch = imgUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+                            if (fileIdMatch) {
+                                const fileId = fileIdMatch[1];
+                                // Usar proxy de imágenes que maneja CORS (necesario para GitHub Pages)
+                                finalImgUrl = `https://images.weserv.nl/?url=https://drive.google.com/thumbnail?id=${fileId}&sz=w1000&output=jpg`;
+                            }
                         }
-                    }
-                    
-                    const img = new Image();
-                    
-                    await new Promise((resolve) => {
+                        
+                        const img = new Image();
+                        
+                        await new Promise((resolve) => {
                         const timeout = setTimeout(() => {
                             // Timeout después de 10 segundos
                             console.warn('Timeout cargando imagen:', finalImgUrl);
@@ -449,47 +610,58 @@ async function exportCatalogoToPDF() {
                         // Configurar crossOrigin para permitir CORS (necesario para proxy)
                         img.crossOrigin = 'anonymous';
                         
-                        img.src = finalImgUrl;
-                    });
+                            img.src = finalImgUrl;
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error cargando imagen:', error);
+                    // Dibujar placeholder en caso de error con tamaño fijo
+                    const placeholderWidth = cardWidth - (imgPadding * 2);
+                    const placeholderHeight = imgHeight;
+                    const placeholderX = x + imgPadding;
+                    const placeholderY = y + imgPadding;
+                    
+                    doc.setFillColor(255, 240, 245);
+                    doc.roundedRect(placeholderX, placeholderY, placeholderWidth, placeholderHeight, 2, 2, 'F');
+                    doc.setDrawColor(255, 200, 220);
+                    doc.setLineWidth(0.5);
+                    doc.roundedRect(placeholderX, placeholderY, placeholderWidth, placeholderHeight, 2, 2);
+                    doc.setFontSize(7);
+                    doc.setTextColor(200, 180, 190);
+                    doc.text('Error', x + cardWidth / 2, placeholderY + (placeholderHeight / 2), { align: 'center' });
                 }
-            } catch (error) {
-                console.error('Error cargando imagen:', error);
-                // Dibujar placeholder en caso de error con tamaño fijo
-                const placeholderWidth = cardWidth - (imgPadding * 2);
-                const placeholderHeight = imgHeight;
-                const placeholderX = x + imgPadding;
-                const placeholderY = y + imgPadding;
                 
-                doc.setFillColor(255, 240, 245);
-                doc.roundedRect(placeholderX, placeholderY, placeholderWidth, placeholderHeight, 2, 2, 'F');
-                doc.setDrawColor(255, 200, 220);
-                doc.setLineWidth(0.5);
-                doc.roundedRect(placeholderX, placeholderY, placeholderWidth, placeholderHeight, 2, 2);
-                doc.setFontSize(7);
-                doc.setTextColor(200, 180, 190);
-                doc.text('Error', x + cardWidth / 2, placeholderY + (placeholderHeight / 2), { align: 'center' });
+                // Código del producto - posición fija después del área de imagen
+                const codeY = y + imgPadding + imgHeight + 8; // 4mm después del área de imagen (reducido)
+                doc.setFontSize(7); // Reducido
+                doc.setTextColor(120, 120, 120);
+                doc.setFont(undefined, 'normal');
+                doc.text(producto.codigo, x + cardWidth / 2, codeY, { align: 'center' });
+                
+                // Precio - posición fija después del código
+                const priceY = codeY + 8; // 4mm después del código (reducido)
+                doc.setFontSize(14); // Reducido ligeramente
+                doc.setTextColor(255, 105, 180); // Rosa
+                doc.setFont(undefined, 'bold');
+                doc.text(`$${parseFloat(producto.precioVenta).toFixed(2)}`, x + cardWidth / 2, priceY, { align: 'center' });
+                doc.setFont(undefined, 'normal');
+                
+                // Mover a la siguiente posición
+                x += cardWidth + margin;
+                if (x + cardWidth > pageWidth - margin) {
+                    x = margin;
+                    y += cardHeight + margin;
+                }
             }
             
-            // Código del producto - posición fija después del área de imagen
-            const codeY = y + imgPadding + imgHeight + 8; // 4mm después del área de imagen (reducido)
-            doc.setFontSize(7); // Reducido
-            doc.setTextColor(120, 120, 120);
-            doc.setFont(undefined, 'normal');
-            doc.text(producto.codigo, x + cardWidth / 2, codeY, { align: 'center' });
-            
-            // Precio - posición fija después del código
-            const priceY = codeY + 8; // 4mm después del código (reducido)
-            doc.setFontSize(14); // Reducido ligeramente
-            doc.setTextColor(255, 105, 180); // Rosa
-            doc.setFont(undefined, 'bold');
-            doc.text(`$${parseFloat(producto.precioVenta).toFixed(2)}`, x + cardWidth / 2, priceY, { align: 'center' });
-            doc.setFont(undefined, 'normal');
-            
-            // Mover a la siguiente posición
-            x += cardWidth + margin;
-            if (x + cardWidth > pageWidth - margin) {
-                x = margin;
+            // Espacio después de la última tarjeta de la sección
+            if (x > margin) {
+                // Si hay una tarjeta en la segunda columna, bajar a la siguiente fila
                 y += cardHeight + margin;
+                x = margin;
+            } else {
+                // Si ya estamos en una nueva fila, solo agregar espacio
+                y += margin;
             }
         }
         
