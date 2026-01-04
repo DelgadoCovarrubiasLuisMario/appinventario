@@ -9,7 +9,34 @@ const STORAGE_KEYS = {
 // Inicialización
 document.addEventListener('DOMContentLoaded', () => {
     initializeApp();
+    registerServiceWorker();
 });
+
+// Registrar Service Worker para PWA
+function registerServiceWorker() {
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            // Intentar registrar con ruta relativa primero (para desarrollo local)
+            const swPath = window.location.pathname.includes('/appinventario/') 
+                ? '/appinventario/sw.js' 
+                : './sw.js';
+            
+            navigator.serviceWorker.register(swPath)
+                .then((registration) => {
+                    console.log('✅ Service Worker registrado:', registration.scope);
+                })
+                .catch((error) => {
+                    console.log('⚠️ Error registrando Service Worker:', error);
+                    // Intentar con ruta alternativa
+                    if (swPath !== './sw.js') {
+                        navigator.serviceWorker.register('./sw.js')
+                            .then((reg) => console.log('✅ Service Worker registrado (alternativo):', reg.scope))
+                            .catch((err) => console.log('❌ Error en registro alternativo:', err));
+                    }
+                });
+        });
+    }
+}
 
 function initializeApp() {
     // Configurar navegación de tabs
@@ -85,12 +112,16 @@ function loadInventario() {
                     <span class="cantidad-badge ${getCantidadClass(producto.cantidad)}">${producto.cantidad}</span>
                 </div>
                 <div class="product-detail">
-                    <label>Precio Compra:</label>
-                    <span>$${parseFloat(producto.precioCompra).toFixed(2)}</span>
+                    <label>Precio Normal:</label>
+                    <span>$${parseFloat(producto.precioNormal || 0).toFixed(2)}</span>
                 </div>
                 <div class="product-detail">
-                    <label>Precio Venta:</label>
-                    <span>$${parseFloat(producto.precioVenta).toFixed(2)}</span>
+                    <label>Precio Contado:</label>
+                    <span>$${parseFloat(producto.precioContado || 0).toFixed(2)}</span>
+                </div>
+                <div class="product-detail">
+                    <label>Precio Mayoreo:</label>
+                    <span>$${parseFloat(producto.precioMayoreo || 0).toFixed(2)}</span>
                 </div>
                 ${producto.comentarios ? `
                 <div class="product-comentarios">
@@ -130,8 +161,9 @@ function addProduct(event) {
         foto: document.getElementById('productFoto').value,
         categoria: document.getElementById('productCategoria').value,
         codigo: document.getElementById('productCodigo').value,
-        precioCompra: parseFloat(document.getElementById('productPrecioCompra').value),
-        precioVenta: parseFloat(document.getElementById('productPrecioVenta').value),
+        precioNormal: parseFloat(document.getElementById('productPrecioNormal').value),
+        precioContado: parseFloat(document.getElementById('productPrecioContado').value),
+        precioMayoreo: parseFloat(document.getElementById('productPrecioMayoreo').value),
         cantidad: parseInt(document.getElementById('productCantidad').value),
         comentarios: document.getElementById('productComentarios').value || '',
         fechaCreacion: new Date().toISOString()
@@ -159,8 +191,9 @@ function editProduct(id) {
     document.getElementById('editProductFoto').value = producto.foto;
     document.getElementById('editProductCategoria').value = producto.categoria || '';
     document.getElementById('editProductCodigo').value = producto.codigo;
-    document.getElementById('editProductPrecioCompra').value = producto.precioCompra;
-    document.getElementById('editProductPrecioVenta').value = producto.precioVenta;
+    document.getElementById('editProductPrecioNormal').value = producto.precioNormal || producto.precioVenta || 0;
+    document.getElementById('editProductPrecioContado').value = producto.precioContado || 0;
+    document.getElementById('editProductPrecioMayoreo').value = producto.precioMayoreo || producto.precioCompra || 0;
     document.getElementById('editProductCantidad').value = producto.cantidad;
     document.getElementById('editProductComentarios').value = producto.comentarios || '';
     
@@ -181,8 +214,9 @@ function updateProduct(event) {
         foto: document.getElementById('editProductFoto').value,
         categoria: document.getElementById('editProductCategoria').value,
         codigo: document.getElementById('editProductCodigo').value,
-        precioCompra: parseFloat(document.getElementById('editProductPrecioCompra').value),
-        precioVenta: parseFloat(document.getElementById('editProductPrecioVenta').value),
+        precioNormal: parseFloat(document.getElementById('editProductPrecioNormal').value),
+        precioContado: parseFloat(document.getElementById('editProductPrecioContado').value),
+        precioMayoreo: parseFloat(document.getElementById('editProductPrecioMayoreo').value),
         cantidad: parseInt(document.getElementById('editProductCantidad').value),
         comentarios: document.getElementById('editProductComentarios').value || ''
     };
@@ -288,7 +322,8 @@ function loadCatalogo() {
                                      referrerpolicy="no-referrer">
                                 <div class="catalogo-info">
                                     <div class="codigo">${producto.codigo}</div>
-                                    <div class="precio">$${parseFloat(producto.precioVenta).toFixed(2)}</div>
+                                    <div class="precio-normal">Normal: $${parseFloat(producto.precioNormal || producto.precioVenta || 0).toFixed(2)}</div>
+                                    <div class="precio-contado">Contado: $${parseFloat(producto.precioContado || 0).toFixed(2)}</div>
                                     ${producto.comentarios ? `
                                     <div class="comentarios-catalogo">${producto.comentarios}</div>
                                     ` : ''}
@@ -314,7 +349,8 @@ function loadCatalogo() {
                      referrerpolicy="no-referrer">
                 <div class="catalogo-info">
                     <div class="codigo">${producto.codigo}</div>
-                    <div class="precio">$${parseFloat(producto.precioVenta).toFixed(2)}</div>
+                    <div class="precio-normal">Normal: $${parseFloat(producto.precioNormal || producto.precioVenta || 0).toFixed(2)}</div>
+                    <div class="precio-contado">Contado: $${parseFloat(producto.precioContado || 0).toFixed(2)}</div>
                     ${producto.comentarios ? `
                     <div class="comentarios-catalogo">${producto.comentarios}</div>
                     ` : ''}
@@ -638,12 +674,20 @@ async function exportCatalogoToPDF() {
                 doc.setFont(undefined, 'normal');
                 doc.text(producto.codigo, x + cardWidth / 2, codeY, { align: 'center' });
                 
-                // Precio - posición fija después del código
-                const priceY = codeY + 8; // 4mm después del código (reducido)
-                doc.setFontSize(14); // Reducido ligeramente
+                // Precios - posición fija después del código
+                const priceY = codeY + 6; // Espacio después del código
+                doc.setFontSize(11); // Tamaño para precio normal
                 doc.setTextColor(255, 105, 180); // Rosa
                 doc.setFont(undefined, 'bold');
-                doc.text(`$${parseFloat(producto.precioVenta).toFixed(2)}`, x + cardWidth / 2, priceY, { align: 'center' });
+                const precioNormal = producto.precioNormal || producto.precioVenta || 0;
+                doc.text(`Normal: $${parseFloat(precioNormal).toFixed(2)}`, x + cardWidth / 2, priceY, { align: 'center' });
+                
+                const priceContadoY = priceY + 5; // Espacio para precio contado
+                doc.setFontSize(10); // Tamaño ligeramente menor
+                doc.setTextColor(255, 145, 164); // Rosa más claro
+                doc.setFont(undefined, 'normal');
+                const precioContado = producto.precioContado || 0;
+                doc.text(`Contado: $${parseFloat(precioContado).toFixed(2)}`, x + cardWidth / 2, priceContadoY, { align: 'center' });
                 doc.setFont(undefined, 'normal');
                 
                 // Mover a la siguiente posición
@@ -747,22 +791,10 @@ function loadVentas() {
                         <label>Cantidad</label>
                         <span>${venta.cantidad}</span>
                     </div>
-                    ${venta.subtotal ? `
-                    <div class="venta-detail-item">
-                        <label>Subtotal</label>
-                        <span>$${parseFloat(venta.subtotal).toFixed(2)}</span>
-                    </div>
-                    ` : ''}
                     ${venta.tipoVenta ? `
                     <div class="venta-detail-item">
                         <label>Tipo</label>
-                        <span>${venta.tipoVenta === 'contado' ? 'Contado' : venta.tipoVenta === 'pagos' ? 'A Pagos' : 'Mayoreo'}</span>
-                    </div>
-                    ` : ''}
-                    ${venta.porcentaje ? `
-                    <div class="venta-detail-item">
-                        <label>${venta.tipoVenta === 'pagos' ? 'Aumento' : 'Descuento'}</label>
-                        <span>${venta.porcentaje}%</span>
+                        <span>${venta.tipoVenta === 'normal' ? 'Normal' : venta.tipoVenta === 'contado' ? 'Contado' : 'Mayoreo'}</span>
                     </div>
                     ` : ''}
                     <div class="venta-detail-item">
@@ -804,23 +836,19 @@ function openAddSaleModal() {
     document.getElementById('addSaleForm').reset();
     document.getElementById('saleFecha').value = new Date().toISOString().split('T')[0];
     document.getElementById('saleAbono').value = 0;
-    document.getElementById('saleTipoVenta').value = 'contado';
-    document.getElementById('salePorcentaje').value = 0;
-    document.getElementById('saleSubtotal').value = '';
+    document.getElementById('saleTipoVenta').value = 'normal';
     document.getElementById('saleTotal').value = '';
     updateProductSelects();
     document.getElementById('addSaleModal').classList.add('active');
 }
 
-// Función para actualizar el total de la venta según el tipo y porcentaje
+// Función para actualizar el total de la venta según el tipo de venta
 function updateSaleTotal() {
     const productoId = document.getElementById('saleProducto').value;
     const cantidad = parseInt(document.getElementById('saleCantidad').value) || 0;
     const tipoVenta = document.getElementById('saleTipoVenta').value;
-    const porcentaje = parseFloat(document.getElementById('salePorcentaje').value) || 0;
     
     if (!productoId || cantidad === 0) {
-        document.getElementById('saleSubtotal').value = '';
         document.getElementById('saleTotal').value = '';
         return;
     }
@@ -829,35 +857,23 @@ function updateSaleTotal() {
     const producto = productos.find(p => p.id === productoId);
     
     if (!producto) {
-        document.getElementById('saleSubtotal').value = '';
         document.getElementById('saleTotal').value = '';
         return;
     }
     
-    // Calcular subtotal (precio base * cantidad)
-    const subtotal = producto.precioVenta * cantidad;
-    document.getElementById('saleSubtotal').value = subtotal.toFixed(2);
+    // Obtener el precio según el tipo de venta
+    let precioUnitario = 0;
     
-    // Calcular total según el tipo de venta
-    let total = subtotal;
-    
-    if (tipoVenta === 'contado') {
-        // Descuento: restar porcentaje
-        total = subtotal * (1 - porcentaje / 100);
-        const helpElement = document.getElementById('salePorcentajeHelp');
-        if (helpElement) helpElement.textContent = `Descuento del ${porcentaje}%`;
-    } else if (tipoVenta === 'pagos') {
-        // Aumento: sumar porcentaje
-        total = subtotal * (1 + porcentaje / 100);
-        const helpElement = document.getElementById('salePorcentajeHelp');
-        if (helpElement) helpElement.textContent = `Aumento del ${porcentaje}%`;
+    if (tipoVenta === 'normal') {
+        precioUnitario = producto.precioNormal || producto.precioVenta || 0;
+    } else if (tipoVenta === 'contado') {
+        precioUnitario = producto.precioContado || 0;
     } else if (tipoVenta === 'mayoreo') {
-        // Descuento: restar porcentaje
-        total = subtotal * (1 - porcentaje / 100);
-        const helpElement = document.getElementById('salePorcentajeHelp');
-        if (helpElement) helpElement.textContent = `Descuento de mayoreo del ${porcentaje}%`;
+        precioUnitario = producto.precioMayoreo || 0;
     }
     
+    // Calcular total
+    const total = precioUnitario * cantidad;
     document.getElementById('saleTotal').value = total.toFixed(2);
 }
 
@@ -869,9 +885,7 @@ function addSale(event) {
         cliente: document.getElementById('saleCliente').value,
         productoId: document.getElementById('saleProducto').value,
         cantidad: parseInt(document.getElementById('saleCantidad').value),
-        subtotal: parseFloat(document.getElementById('saleSubtotal').value),
         tipoVenta: document.getElementById('saleTipoVenta').value,
-        porcentaje: parseFloat(document.getElementById('salePorcentaje').value) || 0,
         total: parseFloat(document.getElementById('saleTotal').value),
         fecha: document.getElementById('saleFecha').value
     };
@@ -920,23 +934,9 @@ function editSale(id) {
     document.getElementById('editSaleCliente').value = venta.cliente;
     document.getElementById('editSaleProducto').value = venta.productoId;
     document.getElementById('editSaleCantidad').value = venta.cantidad;
-    document.getElementById('editSaleTipoVenta').value = venta.tipoVenta || 'contado';
-    document.getElementById('editSalePorcentaje').value = venta.porcentaje || 0;
+    document.getElementById('editSaleTipoVenta').value = venta.tipoVenta || 'normal';
     document.getElementById('editSaleTotal').value = venta.total;
     document.getElementById('editSaleFecha').value = venta.fecha;
-    
-    // Calcular y mostrar subtotal
-    if (venta.subtotal) {
-        document.getElementById('editSaleSubtotal').value = venta.subtotal.toFixed(2);
-    } else {
-        // Calcular subtotal si no existe
-        const productos = getProductos();
-        const producto = productos.find(p => p.id === venta.productoId);
-        if (producto) {
-            const subtotal = producto.precioVenta * venta.cantidad;
-            document.getElementById('editSaleSubtotal').value = subtotal.toFixed(2);
-        }
-    }
     
     updateProductSelects('editSaleProducto');
     updateEditSaleTotal();
@@ -948,10 +948,8 @@ function updateEditSaleTotal() {
     const productoId = document.getElementById('editSaleProducto').value;
     const cantidad = parseInt(document.getElementById('editSaleCantidad').value) || 0;
     const tipoVenta = document.getElementById('editSaleTipoVenta').value;
-    const porcentaje = parseFloat(document.getElementById('editSalePorcentaje').value) || 0;
     
     if (!productoId || cantidad === 0) {
-        document.getElementById('editSaleSubtotal').value = '';
         document.getElementById('editSaleTotal').value = '';
         return;
     }
@@ -960,29 +958,23 @@ function updateEditSaleTotal() {
     const producto = productos.find(p => p.id === productoId);
     
     if (!producto) {
-        document.getElementById('editSaleSubtotal').value = '';
         document.getElementById('editSaleTotal').value = '';
         return;
     }
     
-    // Calcular subtotal (precio base * cantidad)
-    const subtotal = producto.precioVenta * cantidad;
-    document.getElementById('editSaleSubtotal').value = subtotal.toFixed(2);
+    // Obtener el precio según el tipo de venta
+    let precioUnitario = 0;
     
-    // Calcular total según el tipo de venta
-    let total = subtotal;
-    
-    if (tipoVenta === 'contado') {
-        total = subtotal * (1 - porcentaje / 100);
-        document.getElementById('editSalePorcentajeHelp').textContent = `Descuento del ${porcentaje}%`;
-    } else if (tipoVenta === 'pagos') {
-        total = subtotal * (1 + porcentaje / 100);
-        document.getElementById('editSalePorcentajeHelp').textContent = `Aumento del ${porcentaje}%`;
+    if (tipoVenta === 'normal') {
+        precioUnitario = producto.precioNormal || producto.precioVenta || 0;
+    } else if (tipoVenta === 'contado') {
+        precioUnitario = producto.precioContado || 0;
     } else if (tipoVenta === 'mayoreo') {
-        total = subtotal * (1 - porcentaje / 100);
-        document.getElementById('editSalePorcentajeHelp').textContent = `Descuento de mayoreo del ${porcentaje}%`;
+        precioUnitario = producto.precioMayoreo || 0;
     }
     
+    // Calcular total
+    const total = precioUnitario * cantidad;
     document.getElementById('editSaleTotal').value = total.toFixed(2);
 }
 
@@ -1000,9 +992,7 @@ function updateSale(event) {
         cliente: document.getElementById('editSaleCliente').value,
         productoId: document.getElementById('editSaleProducto').value,
         cantidad: parseInt(document.getElementById('editSaleCantidad').value),
-        subtotal: parseFloat(document.getElementById('editSaleSubtotal').value),
         tipoVenta: document.getElementById('editSaleTipoVenta').value,
-        porcentaje: parseFloat(document.getElementById('editSalePorcentaje').value) || 0,
         total: parseFloat(document.getElementById('editSaleTotal').value),
         fecha: document.getElementById('editSaleFecha').value
     };
@@ -1177,21 +1167,12 @@ async function exportVentaToPDF(ventaId) {
         
         // Tipo de venta y porcentaje si existe
         if (venta.tipoVenta) {
-            const tipoTexto = venta.tipoVenta === 'contado' ? 'Contado' : venta.tipoVenta === 'pagos' ? 'A Pagos' : 'Mayoreo';
+            const tipoTexto = venta.tipoVenta === 'normal' ? 'Normal' : venta.tipoVenta === 'contado' ? 'Contado' : 'Mayoreo';
             doc.setFont(undefined, 'bold');
             doc.text('Tipo:', 10, y);
             doc.setFont(undefined, 'normal');
             doc.text(tipoTexto, 35, y);
             y += 6;
-            
-            if (venta.porcentaje && venta.porcentaje > 0) {
-                const porcentajeTexto = venta.tipoVenta === 'pagos' ? `+${venta.porcentaje}%` : `-${venta.porcentaje}%`;
-                doc.setFont(undefined, 'bold');
-                doc.text('Ajuste:', 10, y);
-                doc.setFont(undefined, 'normal');
-                doc.text(porcentajeTexto, 35, y);
-                y += 6;
-            }
         }
         
         y += 2;
@@ -1312,7 +1293,8 @@ function updateProductSelects(selectId = null) {
         productos.forEach(producto => {
             const option = document.createElement('option');
             option.value = producto.id;
-            option.textContent = `${producto.codigo} - $${parseFloat(producto.precioVenta).toFixed(2)}`;
+            const precioMostrar = producto.precioNormal || producto.precioVenta || 0;
+            option.textContent = `${producto.codigo} - $${parseFloat(precioMostrar).toFixed(2)}`;
             select.appendChild(option);
         });
         
@@ -1321,12 +1303,11 @@ function updateProductSelects(selectId = null) {
         }
     });
     
-    // Actualizar total cuando cambia producto, cantidad, tipo de venta o porcentaje
+    // Actualizar total cuando cambia producto, cantidad o tipo de venta
     if (selectId !== 'editSaleProducto') {
         const saleProducto = document.getElementById('saleProducto');
         const saleCantidad = document.getElementById('saleCantidad');
         const saleTipoVenta = document.getElementById('saleTipoVenta');
-        const salePorcentaje = document.getElementById('salePorcentaje');
         
         // Remover listeners anteriores para evitar duplicados
         if (saleProducto) {
@@ -1341,16 +1322,11 @@ function updateProductSelects(selectId = null) {
             saleTipoVenta.removeEventListener('change', updateSaleTotal);
             saleTipoVenta.addEventListener('change', updateSaleTotal);
         }
-        if (salePorcentaje) {
-            salePorcentaje.removeEventListener('input', updateSaleTotal);
-            salePorcentaje.addEventListener('input', updateSaleTotal);
-        }
     } else {
         // Para el modal de edición
         const editSaleProducto = document.getElementById('editSaleProducto');
         const editSaleCantidad = document.getElementById('editSaleCantidad');
         const editSaleTipoVenta = document.getElementById('editSaleTipoVenta');
-        const editSalePorcentaje = document.getElementById('editSalePorcentaje');
         
         // Remover listeners anteriores para evitar duplicados
         if (editSaleProducto) {
@@ -1364,10 +1340,6 @@ function updateProductSelects(selectId = null) {
         if (editSaleTipoVenta) {
             editSaleTipoVenta.removeEventListener('change', updateEditSaleTotal);
             editSaleTipoVenta.addEventListener('change', updateEditSaleTotal);
-        }
-        if (editSalePorcentaje) {
-            editSalePorcentaje.removeEventListener('input', updateEditSaleTotal);
-            editSalePorcentaje.addEventListener('input', updateEditSaleTotal);
         }
     }
 }

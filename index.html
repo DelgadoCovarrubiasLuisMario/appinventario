@@ -2,9 +2,17 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="description" content="Sistema de gestión de inventario, catálogo y ventas">
+    <meta name="theme-color" content="#FFB6C1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Inventario">
     <title>App Inventario - Demo</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="Logo.jpeg" type="image/jpeg">
+    <link rel="apple-touch-icon" href="Logo.jpeg">
 </head>
 <body>
     <div class="container">
@@ -96,12 +104,17 @@
                     <input type="text" id="productCodigo" required>
                 </div>
                 <div class="form-group">
-                    <label>Precio de Compra:</label>
-                    <input type="number" id="productPrecioCompra" step="0.01" required>
+                    <label>Precio Normal:</label>
+                    <input type="number" id="productPrecioNormal" step="0.01" required>
                 </div>
                 <div class="form-group">
-                    <label>Precio de Venta:</label>
-                    <input type="number" id="productPrecioVenta" step="0.01" required>
+                    <label>Precio de Contado:</label>
+                    <input type="number" id="productPrecioContado" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label>Precio Mayoreo:</label>
+                    <input type="number" id="productPrecioMayoreo" step="0.01" required>
+                    <small class="form-help">Solo visible en inventario</small>
                 </div>
                 <div class="form-group">
                     <label>Cantidad:</label>
@@ -151,12 +164,17 @@
                     <input type="text" id="editProductCodigo" required>
                 </div>
                 <div class="form-group">
-                    <label>Precio de Compra:</label>
-                    <input type="number" id="editProductPrecioCompra" step="0.01" required>
+                    <label>Precio Normal:</label>
+                    <input type="number" id="editProductPrecioNormal" step="0.01" required>
                 </div>
                 <div class="form-group">
-                    <label>Precio de Venta:</label>
-                    <input type="number" id="editProductPrecioVenta" step="0.01" required>
+                    <label>Precio de Contado:</label>
+                    <input type="number" id="editProductPrecioContado" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label>Precio Mayoreo:</label>
+                    <input type="number" id="editProductPrecioMayoreo" step="0.01" required>
+                    <small class="form-help">Solo visible en inventario</small>
                 </div>
                 <div class="form-group">
                     <label>Cantidad:</label>
@@ -197,22 +215,14 @@
                 <div class="form-group">
                     <label>Tipo de Venta:</label>
                     <select id="saleTipoVenta" required onchange="updateSaleTotal()">
-                        <option value="contado">Contado (Descuento)</option>
-                        <option value="pagos">A Pagos (Aumento)</option>
-                        <option value="mayoreo">Mayoreo (Descuento)</option>
+                        <option value="normal">Normal</option>
+                        <option value="contado">Contado</option>
+                        <option value="mayoreo">Mayoreo</option>
                     </select>
+                    <small class="form-help">El precio se seleccionará automáticamente según el tipo</small>
                 </div>
                 <div class="form-group">
-                    <label>Porcentaje (%):</label>
-                    <input type="number" id="salePorcentaje" step="0.01" min="0" max="100" value="0" oninput="updateSaleTotal()">
-                    <small class="form-help" id="salePorcentajeHelp">Ingresa el porcentaje a aplicar</small>
-                </div>
-                <div class="form-group">
-                    <label>Subtotal (sin descuento/aumento):</label>
-                    <input type="number" id="saleSubtotal" step="0.01" readonly style="background: #f5f5f5;">
-                </div>
-                <div class="form-group">
-                    <label>Total Final:</label>
+                    <label>Total:</label>
                     <input type="number" id="saleTotal" step="0.01" required readonly style="background: #f5f5f5; font-weight: bold;">
                 </div>
                 <div class="form-group">
@@ -250,11 +260,19 @@
                 </div>
                 <div class="form-group">
                     <label>Cantidad:</label>
-                    <input type="number" id="editSaleCantidad" min="1" required>
+                    <input type="number" id="editSaleCantidad" min="1" required oninput="updateEditSaleTotal()">
+                </div>
+                <div class="form-group">
+                    <label>Tipo de Venta:</label>
+                    <select id="editSaleTipoVenta" required onchange="updateEditSaleTotal()">
+                        <option value="normal">Normal</option>
+                        <option value="contado">Contado</option>
+                        <option value="mayoreo">Mayoreo</option>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label>Total:</label>
-                    <input type="number" id="editSaleTotal" step="0.01" required>
+                    <input type="number" id="editSaleTotal" step="0.01" required readonly style="background: #f5f5f5; font-weight: bold;">
                 </div>
                 <div class="form-group">
                     <label>Fecha:</label>

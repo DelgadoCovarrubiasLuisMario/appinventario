@@ -1,0 +1,26 @@
+{
+  "name": "Sistema de Inventario",
+  "short_name": "Inventario",
+  "description": "Sistema de gestión de inventario, catálogo y ventas",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#FEFCFB",
+  "theme_color": "#FFB6C1",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "Logo.jpeg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "Logo.jpeg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}
+

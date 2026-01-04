@@ -369,10 +369,18 @@ main {
     margin-bottom: 8px;
 }
 
-.catalogo-info .precio {
-    font-size: 1.5em;
+.catalogo-info .precio-normal {
+    font-size: 1.2em;
     font-weight: bold;
     color: #FF69B4;
+    margin-top: 5px;
+}
+
+.catalogo-info .precio-contado {
+    font-size: 1.1em;
+    font-weight: 600;
+    color: #FF91A4;
+    margin-top: 3px;
 }
 
 .comentarios-catalogo {
