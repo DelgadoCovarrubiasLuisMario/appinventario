@@ -112,7 +112,7 @@ function loadInventario() {
                     <span class="cantidad-badge ${getCantidadClass(producto.cantidad)}">${producto.cantidad}</span>
                 </div>
                 <div class="product-detail">
-                    <label>Precio Normal:</label>
+                    <label>Precio Venta:</label>
                     <span>$${parseFloat(producto.precioNormal || 0).toFixed(2)}</span>
                 </div>
                 <div class="product-detail">
@@ -322,7 +322,7 @@ function loadCatalogo() {
                                      referrerpolicy="no-referrer">
                                 <div class="catalogo-info">
                                     <div class="codigo">${producto.codigo}</div>
-                                    <div class="precio-normal">Normal: $${parseFloat(producto.precioNormal || producto.precioVenta || 0).toFixed(2)}</div>
+                                    <div class="precio-normal">Venta: $${parseFloat(producto.precioNormal || producto.precioVenta || 0).toFixed(2)}</div>
                                     <div class="precio-contado">Contado: $${parseFloat(producto.precioContado || 0).toFixed(2)}</div>
                                     ${producto.comentarios ? `
                                     <div class="comentarios-catalogo">${producto.comentarios}</div>
@@ -523,15 +523,17 @@ async function exportCatalogoToPDF() {
                         doc.setTextColor(200, 180, 190);
                         doc.text('Sin imagen', x + cardWidth / 2, placeholderY + (placeholderHeight / 2), { align: 'center' });
                     } else {
-                        // Usar un proxy de imágenes para evitar problemas de CORS
+                        // convertImageUrl ya devuelve el proxy de weserv.nl para evitar problemas de CORS
+                        // Esto funciona tanto en navegador normal como en PWA instalada
                         let finalImgUrl = imgUrl;
                         
-                        // Si es de Google Drive, usar proxy directamente para GitHub Pages
-                        if (imgUrl.includes('drive.google.com')) {
+                        // Si la URL ya viene con el proxy de weserv.nl, usarla directamente
+                        // Si no, intentar extraer el fileId y construir el proxy
+                        if (!imgUrl.includes('images.weserv.nl') && imgUrl.includes('drive.google.com')) {
                             const fileIdMatch = imgUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
                             if (fileIdMatch) {
                                 const fileId = fileIdMatch[1];
-                                // Usar proxy de imágenes que maneja CORS (necesario para GitHub Pages)
+                                // Usar proxy de imágenes que maneja CORS (necesario para GitHub Pages y PWA)
                                 finalImgUrl = `https://images.weserv.nl/?url=https://drive.google.com/thumbnail?id=${fileId}&sz=w1000&output=jpg`;
                             }
                         }
@@ -676,11 +678,11 @@ async function exportCatalogoToPDF() {
                 
                 // Precios - posición fija después del código
                 const priceY = codeY + 6; // Espacio después del código
-                doc.setFontSize(11); // Tamaño para precio normal
+                doc.setFontSize(11); // Tamaño para precio venta
                 doc.setTextColor(255, 105, 180); // Rosa
                 doc.setFont(undefined, 'bold');
                 const precioNormal = producto.precioNormal || producto.precioVenta || 0;
-                doc.text(`Normal: $${parseFloat(precioNormal).toFixed(2)}`, x + cardWidth / 2, priceY, { align: 'center' });
+                doc.text(`Venta: $${parseFloat(precioNormal).toFixed(2)}`, x + cardWidth / 2, priceY, { align: 'center' });
                 
                 const priceContadoY = priceY + 5; // Espacio para precio contado
                 doc.setFontSize(10); // Tamaño ligeramente menor
@@ -688,6 +690,38 @@ async function exportCatalogoToPDF() {
                 doc.setFont(undefined, 'normal');
                 const precioContado = producto.precioContado || 0;
                 doc.text(`Contado: $${parseFloat(precioContado).toFixed(2)}`, x + cardWidth / 2, priceContadoY, { align: 'center' });
+                
+                // Agregar comentarios si existen (estilo elegante)
+                if (producto.comentarios && producto.comentarios.trim()) {
+                    const comentariosY = priceContadoY + 6; // Espacio después del precio contado
+                    
+                    // Línea decorativa sutil antes de los comentarios
+                    doc.setDrawColor(255, 200, 220); // Rosa muy claro
+                    doc.setLineWidth(0.2);
+                    const lineY = comentariosY - 2;
+                    doc.line(x + cardWidth / 2 - 15, lineY, x + cardWidth / 2 + 15, lineY);
+                    
+                    // Comentarios con estilo elegante
+                    doc.setFontSize(7); // Tamaño ligeramente mayor
+                    doc.setTextColor(140, 120, 130); // Gris rosa elegante
+                    doc.setFont(undefined, 'italic'); // Itálica para elegancia
+                    
+                    // Dividir comentarios en líneas si son muy largos
+                    const maxWidth = cardWidth - (imgPadding * 2) - 4; // Margen adicional
+                    const comentarios = doc.splitTextToSize(producto.comentarios.trim(), maxWidth);
+                    let currentY = comentariosY + 2; // Espacio después de la línea decorativa
+                    
+                    comentarios.forEach((line, idx) => {
+                        if (idx < 2) { // Máximo 2 líneas de comentarios
+                            doc.text(line, x + cardWidth / 2, currentY, { align: 'center', maxWidth: maxWidth });
+                            currentY += 3.5; // Espaciado más generoso
+                        }
+                    });
+                    
+                    // Restaurar fuente normal
+                    doc.setFont(undefined, 'normal');
+                }
+                
                 doc.setFont(undefined, 'normal');
                 
                 // Mover a la siguiente posición
@@ -1167,7 +1201,7 @@ async function exportVentaToPDF(ventaId) {
         
         // Tipo de venta y porcentaje si existe
         if (venta.tipoVenta) {
-            const tipoTexto = venta.tipoVenta === 'normal' ? 'Normal' : venta.tipoVenta === 'contado' ? 'Contado' : 'Mayoreo';
+            const tipoTexto = venta.tipoVenta === 'normal' ? 'Venta' : venta.tipoVenta === 'contado' ? 'Contado' : 'Mayoreo';
             doc.setFont(undefined, 'bold');
             doc.text('Tipo:', 10, y);
             doc.setFont(undefined, 'normal');
@@ -1505,11 +1539,12 @@ async function getDirectImageUrl(fileId, input) {
 }
 
 // Función para convertir URLs de Google Drive a formato que funcione sin CORS
+// Usa proxy de weserv.nl para funcionar en PWA y evitar problemas de CORS
 function convertImageUrl(url) {
     if (!url) return null;
     
     // Si ya es un placeholder u otra URL válida, devolverla tal cual
-    if (url.includes('placeholder') || url.includes('http') && !url.includes('drive.google.com')) {
+    if (url.includes('placeholder') || (url.includes('http') && !url.includes('drive.google.com'))) {
         return url;
     }
     
@@ -1528,9 +1563,16 @@ function convertImageUrl(url) {
         fileId = match2[1];
     }
     
+    // Formato 3: https://drive.google.com/thumbnail?id=FILE_ID
+    const match3 = url.match(/thumbnail\?id=([a-zA-Z0-9_-]+)/);
+    if (match3) {
+        fileId = match3[1];
+    }
+    
     if (fileId) {
-        // Usar formato de thumbnail que funciona mejor con CORS
-        return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
+        // Usar proxy de imágenes para evitar problemas de CORS en PWA
+        // Esto funciona tanto en navegador normal como en PWA instalada
+        return `https://images.weserv.nl/?url=https://drive.google.com/thumbnail?id=${fileId}&sz=w1000&output=jpg`;
     }
     
     // Si no se puede convertir, devolver la URL original
