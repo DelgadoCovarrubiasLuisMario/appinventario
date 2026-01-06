@@ -105,20 +105,20 @@
                 </div>
                 <div class="form-group">
                     <label>Precio Venta:</label>
-                    <input type="number" id="productPrecioNormal" step="0.01" required>
+                    <input type="text" id="productPrecioNormal" inputmode="decimal" pattern="[0-9,]*\.?[0-9]*" required>
                 </div>
                 <div class="form-group">
                     <label>Precio de Contado:</label>
-                    <input type="number" id="productPrecioContado" step="0.01" required>
+                    <input type="text" id="productPrecioContado" inputmode="decimal" pattern="[0-9,]*\.?[0-9]*" required>
                 </div>
                 <div class="form-group">
                     <label>Precio Mayoreo:</label>
-                    <input type="number" id="productPrecioMayoreo" step="0.01" required>
+                    <input type="text" id="productPrecioMayoreo" inputmode="decimal" pattern="[0-9,]*\.?[0-9]*" required>
                     <small class="form-help">Solo visible en inventario</small>
                 </div>
                 <div class="form-group">
                     <label>Cantidad:</label>
-                    <input type="number" id="productCantidad" min="0" required>
+                    <input type="text" id="productCantidad" inputmode="numeric" pattern="[0-9,]*" required>
                 </div>
                 <div class="form-group">
                     <label>Comentarios / Especificaciones:</label>
@@ -165,20 +165,20 @@
                 </div>
                 <div class="form-group">
                     <label>Precio Venta:</label>
-                    <input type="number" id="editProductPrecioNormal" step="0.01" required>
+                    <input type="text" id="editProductPrecioNormal" inputmode="decimal" pattern="[0-9,]*\.?[0-9]*" required>
                 </div>
                 <div class="form-group">
                     <label>Precio de Contado:</label>
-                    <input type="number" id="editProductPrecioContado" step="0.01" required>
+                    <input type="text" id="editProductPrecioContado" inputmode="decimal" pattern="[0-9,]*\.?[0-9]*" required>
                 </div>
                 <div class="form-group">
                     <label>Precio Mayoreo:</label>
-                    <input type="number" id="editProductPrecioMayoreo" step="0.01" required>
+                    <input type="text" id="editProductPrecioMayoreo" inputmode="decimal" pattern="[0-9,]*\.?[0-9]*" required>
                     <small class="form-help">Solo visible en inventario</small>
                 </div>
                 <div class="form-group">
                     <label>Cantidad:</label>
-                    <input type="number" id="editProductCantidad" min="0" required>
+                    <input type="text" id="editProductCantidad" inputmode="numeric" pattern="[0-9,]*" required>
                 </div>
                 <div class="form-group">
                     <label>Comentarios / Especificaciones:</label>
@@ -210,7 +210,7 @@
                 </div>
                 <div class="form-group">
                     <label>Cantidad:</label>
-                    <input type="number" id="saleCantidad" min="1" required>
+                    <input type="text" id="saleCantidad" inputmode="numeric" pattern="[0-9,]*" required>
                 </div>
                 <div class="form-group">
                     <label>Tipo de Venta:</label>
@@ -223,11 +223,11 @@
                 </div>
                 <div class="form-group">
                     <label>Total:</label>
-                    <input type="number" id="saleTotal" step="0.01" required readonly style="background: #f5f5f5; font-weight: bold;">
+                    <input type="text" id="saleTotal" inputmode="decimal" pattern="[0-9,]*\.?[0-9]*" required readonly style="background: #f5f5f5; font-weight: bold;">
                 </div>
                 <div class="form-group">
                     <label>Abono Inicial:</label>
-                    <input type="number" id="saleAbono" step="0.01" min="0" value="0">
+                    <input type="text" id="saleAbono" inputmode="decimal" pattern="[0-9,]*\.?[0-9]*" value="0">
                 </div>
                 <div class="form-group">
                     <label>Fecha:</label>
@@ -260,7 +260,7 @@
                 </div>
                 <div class="form-group">
                     <label>Cantidad:</label>
-                    <input type="number" id="editSaleCantidad" min="1" required oninput="updateEditSaleTotal()">
+                    <input type="text" id="editSaleCantidad" inputmode="numeric" pattern="[0-9,]*" required oninput="updateEditSaleTotal()">
                 </div>
                 <div class="form-group">
                     <label>Tipo de Venta:</label>
@@ -272,7 +272,7 @@
                 </div>
                 <div class="form-group">
                     <label>Total:</label>
-                    <input type="number" id="editSaleTotal" step="0.01" required readonly style="background: #f5f5f5; font-weight: bold;">
+                    <input type="text" id="editSaleTotal" inputmode="decimal" pattern="[0-9,]*\.?[0-9]*" required readonly style="background: #f5f5f5; font-weight: bold;">
                 </div>
                 <div class="form-group">
                     <label>Fecha:</label>
@@ -295,7 +295,7 @@
                 <input type="hidden" id="abonoSaleId">
                 <div class="form-group">
                     <label>Monto:</label>
-                    <input type="number" id="abonoMonto" step="0.01" min="0.01" required>
+                    <input type="text" id="abonoMonto" inputmode="decimal" pattern="[0-9,]*\.?[0-9]*" required>
                 </div>
                 <div class="form-group">
                     <label>Fecha:</label>

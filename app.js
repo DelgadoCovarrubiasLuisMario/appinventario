@@ -54,6 +54,85 @@ function initializeApp() {
     
     // Cargar productos en select de ventas
     updateProductSelects();
+    
+    // Configurar formateo automático de números con comas
+    setupNumberFormatting();
+}
+
+// Configurar formateo automático de números mientras se escriben
+function setupNumberFormatting() {
+    // Lista de IDs de inputs que deben formatearse
+    const numberInputs = [
+        'productPrecioNormal', 'productPrecioContado', 'productPrecioMayoreo', 'productCantidad',
+        'editProductPrecioNormal', 'editProductPrecioContado', 'editProductPrecioMayoreo', 'editProductCantidad',
+        'saleCantidad', 'saleAbono',
+        'editSaleCantidad',
+        'abonoMonto'
+    ];
+    
+    numberInputs.forEach(inputId => {
+        const input = document.getElementById(inputId);
+        if (input) {
+            // Formatear al perder el foco
+            input.addEventListener('blur', function() {
+                const value = this.value;
+                if (value) {
+                    const formatted = formatNumberWithCommas(value);
+                    if (formatted !== value) {
+                        this.value = formatted;
+                    }
+                }
+            });
+            
+            // Validar y limpiar mientras se escribe
+            input.addEventListener('input', function(e) {
+                let value = this.value;
+                
+                // Si es un input de cantidad (solo números y comas)
+                if (inputId.includes('Cantidad')) {
+                    // Remover todo excepto números y comas
+                    value = value.replace(/[^0-9,]/g, '');
+                } else {
+                    // Para precios (números, comas y un punto decimal)
+                    // Remover todo excepto números, comas y un punto
+                    value = value.replace(/[^0-9,.]/g, '');
+                    // Asegurar solo un punto decimal
+                    const parts = value.split('.');
+                    if (parts.length > 2) {
+                        value = parts[0] + '.' + parts.slice(1).join('');
+                    }
+                }
+                
+                // Solo actualizar si cambió
+                if (this.value !== value) {
+                    this.value = value;
+                }
+            });
+        }
+    });
+    
+    // Para inputs que se actualizan automáticamente (como saleTotal)
+    const autoUpdateInputs = ['saleTotal', 'editSaleTotal'];
+    autoUpdateInputs.forEach(inputId => {
+        const input = document.getElementById(inputId);
+        if (input) {
+            // Estos inputs son readonly, pero asegurémonos de que se formateen cuando se actualicen
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.type === 'attributes' && mutation.attributeName === 'value') {
+                        const value = input.value;
+                        if (value) {
+                            const formatted = formatNumberWithCommas(value);
+                            if (formatted !== value) {
+                                input.value = formatted;
+                            }
+                        }
+                    }
+                });
+            });
+            observer.observe(input, { attributes: true, attributeFilter: ['value'] });
+        }
+    });
 }
 
 // Navegación entre secciones
@@ -109,19 +188,19 @@ function loadInventario() {
                 <h3>${producto.codigo}</h3>
                 <div class="product-detail">
                     <label>Cantidad:</label>
-                    <span class="cantidad-badge ${getCantidadClass(producto.cantidad)}">${producto.cantidad}</span>
+                    <span class="cantidad-badge ${getCantidadClass(producto.cantidad)}">${formatNumberWithCommas(producto.cantidad)}</span>
                 </div>
                 <div class="product-detail">
                     <label>Precio Venta:</label>
-                    <span>$${parseFloat(producto.precioNormal || 0).toFixed(2)}</span>
+                    <span>$${formatNumberWithCommas(parseFloat(producto.precioNormal || 0).toFixed(2))}</span>
                 </div>
                 <div class="product-detail">
                     <label>Precio Contado:</label>
-                    <span>$${parseFloat(producto.precioContado || 0).toFixed(2)}</span>
+                    <span>$${formatNumberWithCommas(parseFloat(producto.precioContado || 0).toFixed(2))}</span>
                 </div>
                 <div class="product-detail">
                     <label>Precio Mayoreo:</label>
-                    <span>$${parseFloat(producto.precioMayoreo || 0).toFixed(2)}</span>
+                    <span>$${formatNumberWithCommas(parseFloat(producto.precioMayoreo || 0).toFixed(2))}</span>
                 </div>
                 ${producto.comentarios ? `
                 <div class="product-comentarios">
@@ -146,6 +225,11 @@ function getCantidadClass(cantidad) {
 
 function openAddProductModal() {
     document.getElementById('addProductForm').reset();
+    // Limpiar campos numéricos para que no muestren "0" formateado
+    document.getElementById('productPrecioNormal').value = '';
+    document.getElementById('productPrecioContado').value = '';
+    document.getElementById('productPrecioMayoreo').value = '';
+    document.getElementById('productCantidad').value = '';
     document.getElementById('addProductModal').classList.add('active');
 }
 
@@ -161,10 +245,10 @@ function addProduct(event) {
         foto: document.getElementById('productFoto').value,
         categoria: document.getElementById('productCategoria').value,
         codigo: document.getElementById('productCodigo').value,
-        precioNormal: parseFloat(document.getElementById('productPrecioNormal').value),
-        precioContado: parseFloat(document.getElementById('productPrecioContado').value),
-        precioMayoreo: parseFloat(document.getElementById('productPrecioMayoreo').value),
-        cantidad: parseInt(document.getElementById('productCantidad').value),
+        precioNormal: parseNumberWithCommas(document.getElementById('productPrecioNormal').value),
+        precioContado: parseNumberWithCommas(document.getElementById('productPrecioContado').value),
+        precioMayoreo: parseNumberWithCommas(document.getElementById('productPrecioMayoreo').value),
+        cantidad: parseInt(parseNumberWithCommas(document.getElementById('productCantidad').value)),
         comentarios: document.getElementById('productComentarios').value || '',
         fechaCreacion: new Date().toISOString()
     };
@@ -191,10 +275,10 @@ function editProduct(id) {
     document.getElementById('editProductFoto').value = producto.foto;
     document.getElementById('editProductCategoria').value = producto.categoria || '';
     document.getElementById('editProductCodigo').value = producto.codigo;
-    document.getElementById('editProductPrecioNormal').value = producto.precioNormal || producto.precioVenta || 0;
-    document.getElementById('editProductPrecioContado').value = producto.precioContado || 0;
-    document.getElementById('editProductPrecioMayoreo').value = producto.precioMayoreo || producto.precioCompra || 0;
-    document.getElementById('editProductCantidad').value = producto.cantidad;
+    document.getElementById('editProductPrecioNormal').value = formatNumberWithCommas(producto.precioNormal || producto.precioVenta || 0);
+    document.getElementById('editProductPrecioContado').value = formatNumberWithCommas(producto.precioContado || 0);
+    document.getElementById('editProductPrecioMayoreo').value = formatNumberWithCommas(producto.precioMayoreo || producto.precioCompra || 0);
+    document.getElementById('editProductCantidad').value = formatNumberWithCommas(producto.cantidad);
     document.getElementById('editProductComentarios').value = producto.comentarios || '';
     
     document.getElementById('editProductModal').classList.add('active');
@@ -214,10 +298,10 @@ function updateProduct(event) {
         foto: document.getElementById('editProductFoto').value,
         categoria: document.getElementById('editProductCategoria').value,
         codigo: document.getElementById('editProductCodigo').value,
-        precioNormal: parseFloat(document.getElementById('editProductPrecioNormal').value),
-        precioContado: parseFloat(document.getElementById('editProductPrecioContado').value),
-        precioMayoreo: parseFloat(document.getElementById('editProductPrecioMayoreo').value),
-        cantidad: parseInt(document.getElementById('editProductCantidad').value),
+        precioNormal: parseNumberWithCommas(document.getElementById('editProductPrecioNormal').value),
+        precioContado: parseNumberWithCommas(document.getElementById('editProductPrecioContado').value),
+        precioMayoreo: parseNumberWithCommas(document.getElementById('editProductPrecioMayoreo').value),
+        cantidad: parseInt(parseNumberWithCommas(document.getElementById('editProductCantidad').value)),
         comentarios: document.getElementById('editProductComentarios').value || ''
     };
     
@@ -322,8 +406,8 @@ function loadCatalogo() {
                                      referrerpolicy="no-referrer">
                                 <div class="catalogo-info">
                                     <div class="codigo">${producto.codigo}</div>
-                                    <div class="precio-normal">Venta: $${parseFloat(producto.precioNormal || producto.precioVenta || 0).toFixed(2)}</div>
-                                    <div class="precio-contado">Contado: $${parseFloat(producto.precioContado || 0).toFixed(2)}</div>
+                                    <div class="precio-normal">Venta: $${formatNumberWithCommas(parseFloat(producto.precioNormal || producto.precioVenta || 0).toFixed(2))}</div>
+                                    <div class="precio-contado">Contado: $${formatNumberWithCommas(parseFloat(producto.precioContado || 0).toFixed(2))}</div>
                                     ${producto.comentarios ? `
                                     <div class="comentarios-catalogo">${producto.comentarios}</div>
                                     ` : ''}
@@ -349,8 +433,8 @@ function loadCatalogo() {
                      referrerpolicy="no-referrer">
                 <div class="catalogo-info">
                     <div class="codigo">${producto.codigo}</div>
-                    <div class="precio-normal">Normal: $${parseFloat(producto.precioNormal || producto.precioVenta || 0).toFixed(2)}</div>
-                    <div class="precio-contado">Contado: $${parseFloat(producto.precioContado || 0).toFixed(2)}</div>
+                    <div class="precio-normal">Normal: $${formatNumberWithCommas(parseFloat(producto.precioNormal || producto.precioVenta || 0).toFixed(2))}</div>
+                    <div class="precio-contado">Contado: $${formatNumberWithCommas(parseFloat(producto.precioContado || 0).toFixed(2))}</div>
                     ${producto.comentarios ? `
                     <div class="comentarios-catalogo">${producto.comentarios}</div>
                     ` : ''}
@@ -682,14 +766,14 @@ async function exportCatalogoToPDF() {
                 doc.setTextColor(255, 105, 180); // Rosa
                 doc.setFont(undefined, 'bold');
                 const precioNormal = producto.precioNormal || producto.precioVenta || 0;
-                doc.text(`Venta: $${parseFloat(precioNormal).toFixed(2)}`, x + cardWidth / 2, priceY, { align: 'center' });
+                doc.text(`Venta: $${formatNumberWithCommas(parseFloat(precioNormal).toFixed(2))}`, x + cardWidth / 2, priceY, { align: 'center' });
                 
                 const priceContadoY = priceY + 5; // Espacio para precio contado
                 doc.setFontSize(10); // Tamaño ligeramente menor
                 doc.setTextColor(255, 145, 164); // Rosa más claro
                 doc.setFont(undefined, 'normal');
                 const precioContado = producto.precioContado || 0;
-                doc.text(`Contado: $${parseFloat(precioContado).toFixed(2)}`, x + cardWidth / 2, priceContadoY, { align: 'center' });
+                doc.text(`Contado: $${formatNumberWithCommas(parseFloat(precioContado).toFixed(2))}`, x + cardWidth / 2, priceContadoY, { align: 'center' });
                 
                 // Agregar comentarios si existen (estilo elegante)
                 if (producto.comentarios && producto.comentarios.trim()) {
@@ -833,15 +917,15 @@ function loadVentas() {
                     ` : ''}
                     <div class="venta-detail-item">
                         <label>Total</label>
-                        <span>$${parseFloat(venta.total).toFixed(2)}</span>
+                        <span>$${formatNumberWithCommas(parseFloat(venta.total).toFixed(2))}</span>
                     </div>
                     <div class="venta-detail-item">
                         <label>Abonado</label>
-                        <span>$${parseFloat(totalAbonado).toFixed(2)}</span>
+                        <span>$${formatNumberWithCommas(parseFloat(totalAbonado).toFixed(2))}</span>
                     </div>
                     <div class="venta-detail-item">
                         <label>Pendiente</label>
-                        <span>$${parseFloat(pendiente).toFixed(2)}</span>
+                        <span>$${formatNumberWithCommas(parseFloat(pendiente).toFixed(2))}</span>
                     </div>
                     <div class="venta-detail-item">
                         <label>Estado</label>
@@ -855,7 +939,7 @@ function loadVentas() {
                         <h4>Abonos Registrados:</h4>
                         ${ventaAbonos.map(abono => `
                             <div class="abono-item">
-                                <span>${formatDate(abono.fecha)} - $${parseFloat(abono.monto).toFixed(2)}</span>
+                                <span>${formatDate(abono.fecha)} - $${formatNumberWithCommas(parseFloat(abono.monto).toFixed(2))}</span>
                                 <button class="btn btn-danger" style="padding: 4px 8px; font-size: 0.75em;" onclick="deleteAbono('${abono.id}')">Eliminar</button>
                             </div>
                         `).join('')}
@@ -869,9 +953,10 @@ function loadVentas() {
 function openAddSaleModal() {
     document.getElementById('addSaleForm').reset();
     document.getElementById('saleFecha').value = new Date().toISOString().split('T')[0];
-    document.getElementById('saleAbono').value = 0;
+    document.getElementById('saleAbono').value = '0';
     document.getElementById('saleTipoVenta').value = 'normal';
     document.getElementById('saleTotal').value = '';
+    document.getElementById('saleCantidad').value = '';
     updateProductSelects();
     document.getElementById('addSaleModal').classList.add('active');
 }
@@ -879,7 +964,7 @@ function openAddSaleModal() {
 // Función para actualizar el total de la venta según el tipo de venta
 function updateSaleTotal() {
     const productoId = document.getElementById('saleProducto').value;
-    const cantidad = parseInt(document.getElementById('saleCantidad').value) || 0;
+    const cantidad = parseInt(parseNumberWithCommas(document.getElementById('saleCantidad').value)) || 0;
     const tipoVenta = document.getElementById('saleTipoVenta').value;
     
     if (!productoId || cantidad === 0) {
@@ -908,7 +993,7 @@ function updateSaleTotal() {
     
     // Calcular total
     const total = precioUnitario * cantidad;
-    document.getElementById('saleTotal').value = total.toFixed(2);
+    document.getElementById('saleTotal').value = formatNumberWithCommas(total.toFixed(2));
 }
 
 function addSale(event) {
@@ -918,9 +1003,9 @@ function addSale(event) {
         id: generateId(),
         cliente: document.getElementById('saleCliente').value,
         productoId: document.getElementById('saleProducto').value,
-        cantidad: parseInt(document.getElementById('saleCantidad').value),
+        cantidad: parseInt(parseNumberWithCommas(document.getElementById('saleCantidad').value)),
         tipoVenta: document.getElementById('saleTipoVenta').value,
-        total: parseFloat(document.getElementById('saleTotal').value),
+        total: parseNumberWithCommas(document.getElementById('saleTotal').value),
         fecha: document.getElementById('saleFecha').value
     };
     
@@ -929,7 +1014,7 @@ function addSale(event) {
     saveVentas(ventas);
     
     // Si hay abono inicial, agregarlo
-    const abonoInicial = parseFloat(document.getElementById('saleAbono').value);
+    const abonoInicial = parseNumberWithCommas(document.getElementById('saleAbono').value);
     if (abonoInicial > 0) {
         const abono = {
             id: generateId(),
@@ -967,9 +1052,9 @@ function editSale(id) {
     document.getElementById('editSaleId').value = venta.id;
     document.getElementById('editSaleCliente').value = venta.cliente;
     document.getElementById('editSaleProducto').value = venta.productoId;
-    document.getElementById('editSaleCantidad').value = venta.cantidad;
+    document.getElementById('editSaleCantidad').value = formatNumberWithCommas(venta.cantidad);
     document.getElementById('editSaleTipoVenta').value = venta.tipoVenta || 'normal';
-    document.getElementById('editSaleTotal').value = venta.total;
+    document.getElementById('editSaleTotal').value = formatNumberWithCommas(venta.total);
     document.getElementById('editSaleFecha').value = venta.fecha;
     
     updateProductSelects('editSaleProducto');
@@ -980,7 +1065,7 @@ function editSale(id) {
 // Función para actualizar el total de la venta editada
 function updateEditSaleTotal() {
     const productoId = document.getElementById('editSaleProducto').value;
-    const cantidad = parseInt(document.getElementById('editSaleCantidad').value) || 0;
+    const cantidad = parseInt(parseNumberWithCommas(document.getElementById('editSaleCantidad').value)) || 0;
     const tipoVenta = document.getElementById('editSaleTipoVenta').value;
     
     if (!productoId || cantidad === 0) {
@@ -1009,7 +1094,7 @@ function updateEditSaleTotal() {
     
     // Calcular total
     const total = precioUnitario * cantidad;
-    document.getElementById('editSaleTotal').value = total.toFixed(2);
+    document.getElementById('editSaleTotal').value = formatNumberWithCommas(total.toFixed(2));
 }
 
 function updateSale(event) {
@@ -1025,9 +1110,9 @@ function updateSale(event) {
         ...ventas[index],
         cliente: document.getElementById('editSaleCliente').value,
         productoId: document.getElementById('editSaleProducto').value,
-        cantidad: parseInt(document.getElementById('editSaleCantidad').value),
+        cantidad: parseInt(parseNumberWithCommas(document.getElementById('editSaleCantidad').value)),
         tipoVenta: document.getElementById('editSaleTipoVenta').value,
-        total: parseFloat(document.getElementById('editSaleTotal').value),
+        total: parseNumberWithCommas(document.getElementById('editSaleTotal').value),
         fecha: document.getElementById('editSaleFecha').value
     };
     
@@ -1067,7 +1152,7 @@ function addAbono(event) {
     const abono = {
         id: generateId(),
         ventaId: document.getElementById('abonoSaleId').value,
-        monto: parseFloat(document.getElementById('abonoMonto').value),
+        monto: parseNumberWithCommas(document.getElementById('abonoMonto').value),
         fecha: document.getElementById('abonoFecha').value
     };
     
@@ -1219,23 +1304,23 @@ async function exportVentaToPDF(ventaId) {
         if (venta.subtotal && venta.subtotal !== venta.total) {
             doc.setFont(undefined, 'bold');
             doc.text('SUBTOTAL:', 10, y);
-            doc.text(`$${parseFloat(venta.subtotal).toFixed(2)}`, pageWidth - 10, y, { align: 'right' });
+            doc.text(`$${formatNumberWithCommas(parseFloat(venta.subtotal).toFixed(2))}`, pageWidth - 10, y, { align: 'right' });
             y += 6;
         }
         doc.setFont(undefined, 'bold');
         doc.text('TOTAL:', 10, y);
-        doc.text(`$${parseFloat(venta.total).toFixed(2)}`, pageWidth - 10, y, { align: 'right' });
+        doc.text(`$${formatNumberWithCommas(parseFloat(venta.total).toFixed(2))}`, pageWidth - 10, y, { align: 'right' });
         y += 6;
         
         if (totalAbonado > 0) {
             doc.setFont(undefined, 'normal');
             doc.text('Abonado:', 10, y);
-            doc.text(`$${parseFloat(totalAbonado).toFixed(2)}`, pageWidth - 10, y, { align: 'right' });
+            doc.text(`$${formatNumberWithCommas(parseFloat(totalAbonado).toFixed(2))}`, pageWidth - 10, y, { align: 'right' });
             y += 6;
             
             doc.setFont(undefined, 'bold');
             doc.text('PENDIENTE:', 10, y);
-            doc.text(`$${parseFloat(pendiente).toFixed(2)}`, pageWidth - 10, y, { align: 'right' });
+            doc.text(`$${formatNumberWithCommas(parseFloat(pendiente).toFixed(2))}`, pageWidth - 10, y, { align: 'right' });
             y += 8;
         } else {
             y += 6;
@@ -1328,7 +1413,7 @@ function updateProductSelects(selectId = null) {
             const option = document.createElement('option');
             option.value = producto.id;
             const precioMostrar = producto.precioNormal || producto.precioVenta || 0;
-            option.textContent = `${producto.codigo} - $${parseFloat(precioMostrar).toFixed(2)}`;
+            option.textContent = `${producto.codigo} - $${formatNumberWithCommas(parseFloat(precioMostrar).toFixed(2))}`;
             select.appendChild(option);
         });
         
@@ -1607,6 +1692,37 @@ function convertDriveLinkToDirect(url, input) {
 }
 
 // ========== UTILIDADES ==========
+
+// Funciones para formatear y parsear números con comas
+function formatNumberWithCommas(value) {
+    if (!value && value !== 0) return '';
+    // Convertir a número si es string
+    const num = typeof value === 'string' ? parseFloat(value.replace(/,/g, '')) : value;
+    if (isNaN(num)) return '';
+    
+    // Solo formatear si tiene 4 o más dígitos en la parte entera
+    const numStr = num.toString();
+    const parts = numStr.split('.');
+    const integerPart = parts[0];
+    
+    if (integerPart.length >= 4) {
+        // Formatear con comas
+        const formatted = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        // Mantener decimales si existen
+        return parts.length > 1 ? `${formatted}.${parts[1]}` : formatted;
+    }
+    
+    // Si tiene menos de 4 dígitos, devolver tal cual (puede tener decimales)
+    return numStr;
+}
+
+function parseNumberWithCommas(value) {
+    if (!value) return 0;
+    // Remover comas y convertir a número
+    const cleaned = String(value).replace(/,/g, '');
+    const parsed = parseFloat(cleaned);
+    return isNaN(parsed) ? 0 : parsed;
+}
 
 function getProductos() {
     const data = localStorage.getItem(STORAGE_KEYS.PRODUCTOS);
