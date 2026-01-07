@@ -1,5 +1,5 @@
 // Service Worker para PWA
-const CACHE_NAME = 'inventario-app-v2';
+const CACHE_NAME = 'inventario-app-v3';
 const urlsToCache = [
   '/appinventario/',
   '/appinventario/index.html',

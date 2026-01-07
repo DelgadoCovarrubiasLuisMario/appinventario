@@ -348,16 +348,18 @@ function filterCatalogo(categoria) {
 
 function loadCatalogo() {
     const productos = getProductos();
+    // Filtrar productos agotados (cantidad = 0) del catálogo
+    const productosDisponibles = productos.filter(p => (p.cantidad || 0) > 0);
     const grid = document.getElementById('catalogoGrid');
     const filtersContainer = document.querySelector('.catalogo-filters');
     
-    if (productos.length === 0) {
-        grid.innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">No hay productos en el catálogo.</p>';
+    if (productosDisponibles.length === 0) {
+        grid.innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">No hay productos disponibles en el catálogo.</p>';
         return;
     }
     
-    // Generar botones de filtro dinámicamente basados en las categorías existentes
-    const categoriasUnicas = [...new Set(productos.map(p => p.categoria || 'Sin categoría').filter(c => c))];
+    // Generar botones de filtro dinámicamente basados en las categorías existentes (solo de productos disponibles)
+    const categoriasUnicas = [...new Set(productosDisponibles.map(p => p.categoria || 'Sin categoría').filter(c => c))];
     categoriasUnicas.sort();
     
     if (filtersContainer) {
@@ -370,26 +372,26 @@ function loadCatalogo() {
     }
     
     // Filtrar productos por categoría si hay filtro activo
-    let productosFiltrados = productos;
+    let productosFiltrados = productosDisponibles;
     if (categoriaFiltroActual !== 'todos') {
-        productosFiltrados = productos.filter(p => (p.categoria || 'Sin categoría') === categoriaFiltroActual);
+        productosFiltrados = productosDisponibles.filter(p => (p.categoria || 'Sin categoría') === categoriaFiltroActual);
     }
     
     if (productosFiltrados.length === 0) {
-        grid.innerHTML = `<p style="text-align: center; color: #666; padding: 40px;">No hay productos en la categoría seleccionada.</p>`;
+        grid.innerHTML = `<p style="text-align: center; color: #666; padding: 40px;">No hay productos disponibles en la categoría seleccionada.</p>`;
         return;
     }
     
     // Si no hay filtro, agrupar por categoría dinámicamente
     if (categoriaFiltroActual === 'todos') {
-        // Obtener todas las categorías únicas de los productos
-        const categoriasUnicas = [...new Set(productos.map(p => p.categoria || 'Sin categoría').filter(c => c))];
+        // Obtener todas las categorías únicas de los productos disponibles
+        const categoriasUnicas = [...new Set(productosDisponibles.map(p => p.categoria || 'Sin categoría').filter(c => c))];
         categoriasUnicas.sort(); // Ordenar alfabéticamente
         
         let html = '';
         
         categoriasUnicas.forEach(categoria => {
-            const productosCategoria = productos.filter(p => (p.categoria || 'Sin categoría') === categoria);
+            const productosCategoria = productosDisponibles.filter(p => (p.categoria || 'Sin categoría') === categoria);
             
             if (productosCategoria.length > 0) {
                 html += `<div class="categoria-section">
@@ -446,9 +448,11 @@ function loadCatalogo() {
 
 async function exportCatalogoToPDF() {
     const productos = getProductos();
+    // Filtrar productos agotados (cantidad = 0) del PDF del catálogo
+    const productosDisponibles = productos.filter(p => (p.cantidad || 0) > 0);
     
-    if (productos.length === 0) {
-        showNotification('No hay productos en el catálogo para exportar');
+    if (productosDisponibles.length === 0) {
+        showNotification('No hay productos disponibles en el catálogo para exportar');
         return;
     }
     
@@ -465,8 +469,9 @@ async function exportCatalogoToPDF() {
         const margin = 12; // Márgenes de la página (en mm)
         const cardWidth = (pageWidth - 3 * margin) / 2; // Ancho de cada tarjeta (2 columnas)
         const cardHeight = 55; // Altura de cada tarjeta de producto (en mm)
-        const imgHeight = 30; // Altura de las imágenes dentro de las tarjetas (en mm)
         const imgPadding = 4; // Espacio interno alrededor de las imágenes (en mm)
+        const imgWidth = (cardWidth / 2) - (imgPadding * 2); // Ancho de la imagen (mitad de la tarjeta)
+        const infoWidth = cardWidth / 2; // Ancho del área de información (mitad de la tarjeta)
         // ================================================================
         
         let x = margin; // Posición horizontal inicial
@@ -530,14 +535,14 @@ async function exportCatalogoToPDF() {
         
         y += 8; // Espacio antes de los productos - EDITA AQUÍ
         
-        // Agrupar productos por categoría
-        const categoriasUnicas = [...new Set(productos.map(p => p.categoria || 'Sin categoría').filter(c => c))];
+        // Agrupar productos por categoría (solo disponibles)
+        const categoriasUnicas = [...new Set(productosDisponibles.map(p => p.categoria || 'Sin categoría').filter(c => c))];
         categoriasUnicas.sort(); // Ordenar alfabéticamente
         
         // Procesar cada categoría
         for (let catIndex = 0; catIndex < categoriasUnicas.length; catIndex++) {
             const categoria = categoriasUnicas[catIndex];
-            const productosCategoria = productos.filter(p => (p.categoria || 'Sin categoría') === categoria);
+            const productosCategoria = productosDisponibles.filter(p => (p.categoria || 'Sin categoría') === categoria);
             
             // Verificar si necesitamos una nueva página para el título de la categoría
             if (y + 20 > pageHeight - margin) {
@@ -583,20 +588,21 @@ async function exportCatalogoToPDF() {
                 doc.setDrawColor(255, 182, 193);
                 doc.roundedRect(x, y, cardWidth, cardHeight, 3, 3);
                 
-                // Área fija para la imagen (siempre el mismo tamaño)
-                const imgAreaY = y + imgPadding;
-                const imgAreaHeight = imgHeight;
-                const imgAreaWidth = cardWidth - (imgPadding * 2);
+                // Área para la imagen (lado izquierdo, mitad de la tarjeta)
+                const imgX = x + imgPadding;
+                const imgY = y + imgPadding;
+                const imgAreaWidth = imgWidth;
+                const imgAreaHeight = cardHeight - (imgPadding * 2);
                 
                 // Cargar y agregar imagen
                 try {
                     const imgUrl = convertImageUrl(producto.foto);
                     if (!imgUrl || (!imgUrl.includes('drive.google.com') && !imgUrl.includes('http'))) {
                         // Si no hay imagen válida, dibujar placeholder con tamaño fijo
-                        const placeholderWidth = cardWidth - (imgPadding * 2);
-                        const placeholderHeight = imgHeight;
-                        const placeholderX = x + imgPadding;
-                        const placeholderY = y + imgPadding;
+                        const placeholderWidth = imgAreaWidth;
+                        const placeholderHeight = imgAreaHeight;
+                        const placeholderX = imgX;
+                        const placeholderY = imgY;
                         
                         doc.setFillColor(255, 240, 245);
                         doc.roundedRect(placeholderX, placeholderY, placeholderWidth, placeholderHeight, 2, 2, 'F');
@@ -629,10 +635,10 @@ async function exportCatalogoToPDF() {
                             // Timeout después de 10 segundos
                             console.warn('Timeout cargando imagen:', finalImgUrl);
                             // Placeholder con tamaño fijo igual al área de imagen
-                            const placeholderWidth = cardWidth - (imgPadding * 2);
-                            const placeholderHeight = imgHeight;
-                            const placeholderX = x + imgPadding;
-                            const placeholderY = y + imgPadding;
+                            const placeholderWidth = imgAreaWidth;
+                            const placeholderHeight = imgAreaHeight;
+                            const placeholderX = imgX;
+                            const placeholderY = imgY;
                             
                             doc.setFillColor(255, 240, 245);
                             doc.roundedRect(placeholderX, placeholderY, placeholderWidth, placeholderHeight, 2, 2, 'F');
@@ -648,10 +654,7 @@ async function exportCatalogoToPDF() {
                         img.onload = () => {
                             clearTimeout(timeout);
                             try {
-                                // Calcular dimensiones para el PDF - tamaño fijo
-                                const imgAreaWidth = cardWidth - (imgPadding * 2);
-                                const imgAreaHeight = imgHeight;
-                                
+                                // Calcular dimensiones para el PDF - ajustar al área de la mitad izquierda
                                 // Calcular dimensiones manteniendo proporción pero ajustando al área fija
                                 const imgAspectRatio = img.width / img.height;
                                 const areaAspectRatio = imgAreaWidth / imgAreaHeight;
@@ -668,15 +671,15 @@ async function exportCatalogoToPDF() {
                                     finalImgWidth = imgAreaHeight * imgAspectRatio;
                                 }
                                 
-                                // Centrar la imagen en el área
-                                const imgX = x + imgPadding + (imgAreaWidth - finalImgWidth) / 2;
-                                const imgY = y + imgPadding + (imgAreaHeight - finalImgHeight) / 2;
+                                // Centrar la imagen en el área izquierda
+                                const finalImgX = imgX + (imgAreaWidth - finalImgWidth) / 2;
+                                const finalImgY = imgY + (imgAreaHeight - finalImgHeight) / 2;
                                 
                                 // Agregar imagen directamente al PDF (jsPDF puede manejar URLs con proxy)
                                 // Si el proxy funciona, podemos usar la URL directamente
                                 // Si no, intentamos con el objeto Image
                                 try {
-                                    doc.addImage(img, 'JPEG', imgX, imgY, finalImgWidth, finalImgHeight);
+                                    doc.addImage(img, 'JPEG', finalImgX, finalImgY, finalImgWidth, finalImgHeight);
                                     console.log('✅ Imagen agregada al PDF:', producto.codigo);
                                 } catch (e) {
                                     // Si falla, intentar con canvas pero con crossOrigin
@@ -686,16 +689,16 @@ async function exportCatalogoToPDF() {
                                     canvas.height = img.height;
                                     ctx.drawImage(img, 0, 0);
                                     const imgData = canvas.toDataURL('image/jpeg', 0.8);
-                                    doc.addImage(imgData, 'JPEG', imgX, imgY, finalImgWidth, finalImgHeight);
+                                    doc.addImage(imgData, 'JPEG', finalImgX, finalImgY, finalImgWidth, finalImgHeight);
                                     console.log('✅ Imagen agregada al PDF (canvas):', producto.codigo);
                                 }
                             } catch (e) {
                                 console.error('Error agregando imagen al PDF:', e);
                                 // Placeholder con tamaño fijo
-                                const placeholderWidth = cardWidth - (imgPadding * 2);
-                                const placeholderHeight = imgHeight;
-                                const placeholderX = x + imgPadding;
-                                const placeholderY = y + imgPadding;
+                                const placeholderWidth = imgAreaWidth;
+                                const placeholderHeight = imgAreaHeight;
+                                const placeholderX = imgX;
+                                const placeholderY = imgY;
                                 
                                 doc.setFillColor(255, 240, 245);
                                 doc.roundedRect(placeholderX, placeholderY, placeholderWidth, placeholderHeight, 2, 2, 'F');
@@ -713,10 +716,10 @@ async function exportCatalogoToPDF() {
                             clearTimeout(timeout);
                             console.error('Error cargando imagen:', finalImgUrl, error);
                             // Si la imagen falla, dibujar un placeholder con tamaño fijo
-                            const placeholderWidth = cardWidth - (imgPadding * 2);
-                            const placeholderHeight = imgHeight;
-                            const placeholderX = x + imgPadding;
-                            const placeholderY = y + imgPadding;
+                            const placeholderWidth = imgAreaWidth;
+                            const placeholderHeight = imgAreaHeight;
+                            const placeholderX = imgX;
+                            const placeholderY = imgY;
                             
                             doc.setFillColor(255, 240, 245);
                             doc.roundedRect(placeholderX, placeholderY, placeholderWidth, placeholderHeight, 2, 2, 'F');
@@ -738,10 +741,10 @@ async function exportCatalogoToPDF() {
                 } catch (error) {
                     console.error('Error cargando imagen:', error);
                     // Dibujar placeholder en caso de error con tamaño fijo
-                    const placeholderWidth = cardWidth - (imgPadding * 2);
-                    const placeholderHeight = imgHeight;
-                    const placeholderX = x + imgPadding;
-                    const placeholderY = y + imgPadding;
+                    const placeholderWidth = imgAreaWidth;
+                    const placeholderHeight = imgAreaHeight;
+                    const placeholderX = imgX;
+                    const placeholderY = imgY;
                     
                     doc.setFillColor(255, 240, 245);
                     doc.roundedRect(placeholderX, placeholderY, placeholderWidth, placeholderHeight, 2, 2, 'F');
@@ -753,52 +756,53 @@ async function exportCatalogoToPDF() {
                     doc.text('Error', x + cardWidth / 2, placeholderY + (placeholderHeight / 2), { align: 'center' });
                 }
                 
-                // Código del producto - posición fija después del área de imagen
-                const codeY = y + imgPadding + imgHeight + 8; // 4mm después del área de imagen (reducido)
-                doc.setFontSize(7); // Reducido
-                doc.setTextColor(120, 120, 120);
-                doc.setFont(undefined, 'normal');
-                doc.text(producto.codigo, x + cardWidth / 2, codeY, { align: 'center' });
+                // Área de información (lado derecho, mitad de la tarjeta)
+                const infoX = x + (cardWidth / 2) + 2; // Inicio del área de info (mitad derecha + pequeño margen)
+                let infoY = y + imgPadding; // Inicio vertical
                 
-                // Precios - posición fija después del código
-                const priceY = codeY + 6; // Espacio después del código
-                doc.setFontSize(11); // Tamaño para precio venta
+                // Código del producto
+                doc.setFontSize(8);
+                doc.setTextColor(120, 120, 120);
+                doc.setFont(undefined, 'bold');
+                doc.text(producto.codigo, infoX, infoY, { maxWidth: infoWidth - 4 });
+                infoY += 5;
+                
+                // Precios
+                const precioNormal = producto.precioNormal || producto.precioVenta || 0;
+                doc.setFontSize(10);
                 doc.setTextColor(255, 105, 180); // Rosa
                 doc.setFont(undefined, 'bold');
-                const precioNormal = producto.precioNormal || producto.precioVenta || 0;
-                doc.text(`Venta: $${formatNumberWithCommas(parseFloat(precioNormal).toFixed(2))}`, x + cardWidth / 2, priceY, { align: 'center' });
+                doc.text(`Venta: $${formatNumberWithCommas(parseFloat(precioNormal).toFixed(2))}`, infoX, infoY, { maxWidth: infoWidth - 4 });
+                infoY += 5;
                 
-                const priceContadoY = priceY + 5; // Espacio para precio contado
-                doc.setFontSize(10); // Tamaño ligeramente menor
+                const precioContado = producto.precioContado || 0;
+                doc.setFontSize(9);
                 doc.setTextColor(255, 145, 164); // Rosa más claro
                 doc.setFont(undefined, 'normal');
-                const precioContado = producto.precioContado || 0;
-                doc.text(`Contado: $${formatNumberWithCommas(parseFloat(precioContado).toFixed(2))}`, x + cardWidth / 2, priceContadoY, { align: 'center' });
+                doc.text(`Contado: $${formatNumberWithCommas(parseFloat(precioContado).toFixed(2))}`, infoX, infoY, { maxWidth: infoWidth - 4 });
+                infoY += 5;
                 
                 // Agregar comentarios si existen (estilo elegante)
                 if (producto.comentarios && producto.comentarios.trim()) {
-                    const comentariosY = priceContadoY + 6; // Espacio después del precio contado
-                    
                     // Línea decorativa sutil antes de los comentarios
                     doc.setDrawColor(255, 200, 220); // Rosa muy claro
                     doc.setLineWidth(0.2);
-                    const lineY = comentariosY - 2;
-                    doc.line(x + cardWidth / 2 - 15, lineY, x + cardWidth / 2 + 15, lineY);
+                    doc.line(infoX, infoY, infoX + infoWidth - 8, infoY);
+                    infoY += 3;
                     
                     // Comentarios con estilo elegante
-                    doc.setFontSize(7); // Tamaño ligeramente mayor
+                    doc.setFontSize(7);
                     doc.setTextColor(140, 120, 130); // Gris rosa elegante
                     doc.setFont(undefined, 'italic'); // Itálica para elegancia
                     
                     // Dividir comentarios en líneas si son muy largos
-                    const maxWidth = cardWidth - (imgPadding * 2) - 4; // Margen adicional
+                    const maxWidth = infoWidth - 8; // Margen adicional
                     const comentarios = doc.splitTextToSize(producto.comentarios.trim(), maxWidth);
-                    let currentY = comentariosY + 2; // Espacio después de la línea decorativa
                     
                     comentarios.forEach((line, idx) => {
-                        if (idx < 2) { // Máximo 2 líneas de comentarios
-                            doc.text(line, x + cardWidth / 2, currentY, { align: 'center', maxWidth: maxWidth });
-                            currentY += 3.5; // Espaciado más generoso
+                        if (idx < 3 && infoY < y + cardHeight - imgPadding) { // Máximo 3 líneas o hasta el final de la tarjeta
+                            doc.text(line, infoX, infoY, { maxWidth: maxWidth });
+                            infoY += 3.5; // Espaciado
                         }
                     });
                     
@@ -883,18 +887,37 @@ function loadVentas() {
     }
     
     container.innerHTML = ventas.map(venta => {
-        const producto = productos.find(p => p.id === venta.productoId);
+        // Compatibilidad: si tiene productos (nuevo formato), usar eso; si no, usar productoId (formato antiguo)
+        let productosVenta = [];
+        if (venta.productos && Array.isArray(venta.productos)) {
+            productosVenta = venta.productos;
+        } else if (venta.productoId) {
+            // Formato antiguo - convertir a nuevo formato
+            productosVenta = [{
+                productoId: venta.productoId,
+                cantidad: venta.cantidad || 0,
+                tipoVenta: venta.tipoVenta || 'normal'
+            }];
+        }
+        
         const ventaAbonos = abonos.filter(a => a.ventaId === venta.id);
         const totalAbonado = ventaAbonos.reduce((sum, a) => sum + a.monto, 0);
         const pendiente = venta.total - totalAbonado;
         const estaPagado = pendiente <= 0;
+        
+        // Generar lista de productos
+        const productosList = productosVenta.map(item => {
+            const prod = productos.find(p => p.id === item.productoId);
+            const tipoTexto = item.tipoVenta === 'normal' ? 'Venta' : item.tipoVenta === 'contado' ? 'Contado' : 'Mayoreo';
+            return `${prod ? prod.codigo : 'N/A'} (${item.cantidad}x - ${tipoTexto})`;
+        }).join(', ');
         
         return `
             <div class="venta-item">
                 <div class="venta-header">
                     <div class="venta-info">
                         <h3>${venta.cliente}</h3>
-                        <p><strong>Producto:</strong> ${producto ? producto.codigo : 'N/A'}</p>
+                        <p><strong>Productos:</strong> ${productosList || 'N/A'}</p>
                         <p><strong>Fecha:</strong> ${formatDate(venta.fecha)}</p>
                     </div>
                     <div class="venta-actions">
@@ -906,15 +929,9 @@ function loadVentas() {
                 </div>
                 <div class="venta-details">
                     <div class="venta-detail-item">
-                        <label>Cantidad</label>
-                        <span>${venta.cantidad}</span>
+                        <label>Total de Productos</label>
+                        <span>${productosVenta.reduce((sum, item) => sum + (item.cantidad || 0), 0)}</span>
                     </div>
-                    ${venta.tipoVenta ? `
-                    <div class="venta-detail-item">
-                        <label>Tipo</label>
-                        <span>${venta.tipoVenta === 'normal' ? 'Normal' : venta.tipoVenta === 'contado' ? 'Contado' : 'Mayoreo'}</span>
-                    </div>
-                    ` : ''}
                     <div class="venta-detail-item">
                         <label>Total</label>
                         <span>$${formatNumberWithCommas(parseFloat(venta.total).toFixed(2))}</span>
@@ -950,64 +967,223 @@ function loadVentas() {
     }).join('');
 }
 
+let saleProductsCounter = 0;
+
 function openAddSaleModal() {
     document.getElementById('addSaleForm').reset();
     document.getElementById('saleFecha').value = new Date().toISOString().split('T')[0];
     document.getElementById('saleAbono').value = '0';
-    document.getElementById('saleTipoVenta').value = 'normal';
     document.getElementById('saleTotal').value = '';
-    document.getElementById('saleCantidad').value = '';
-    updateProductSelects();
+    saleProductsCounter = 0;
+    
+    // Limpiar contenedor de productos
+    const container = document.getElementById('saleProductsContainer');
+    container.innerHTML = '';
+    
+    // Agregar primer producto
+    addProductToSale();
+    
     document.getElementById('addSaleModal').classList.add('active');
 }
 
-// Función para actualizar el total de la venta según el tipo de venta
+function addProductToSale() {
+    const container = document.getElementById('saleProductsContainer');
+    const productId = `saleProduct_${saleProductsCounter}`;
+    const cantidadId = `saleCantidad_${saleProductsCounter}`;
+    const tipoVentaId = `saleTipoVenta_${saleProductsCounter}`;
+    
+    const productDiv = document.createElement('div');
+    productDiv.className = 'sale-product-item';
+    productDiv.style.cssText = 'border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px; background: #f9f9f9;';
+    productDiv.id = `productItem_${saleProductsCounter}`;
+    
+    productDiv.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <h4 style="margin: 0;">Producto ${saleProductsCounter + 1}</h4>
+            ${saleProductsCounter > 0 ? `<button type="button" class="btn btn-danger" onclick="removeProductFromSale(${saleProductsCounter})" style="padding: 5px 10px; font-size: 0.85em;">Eliminar</button>` : ''}
+        </div>
+        <div class="form-group" style="margin-bottom: 10px;">
+            <label>Producto:</label>
+            <select id="${productId}" class="sale-product-select" required onchange="updateSaleTotal()">
+                <option value="">Seleccionar producto...</option>
+            </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 10px;">
+            <label>Cantidad:</label>
+            <input type="text" id="${cantidadId}" class="sale-cantidad-input" inputmode="numeric" pattern="[0-9,]*" required oninput="updateSaleTotal()">
+        </div>
+        <div class="form-group" style="margin-bottom: 10px;">
+            <label>Tipo de Venta:</label>
+            <select id="${tipoVentaId}" class="sale-tipo-venta-select" required onchange="updateSaleTotal()">
+                <option value="normal">Venta</option>
+                <option value="contado">Contado</option>
+                <option value="mayoreo">Mayoreo</option>
+            </select>
+        </div>
+    `;
+    
+    container.appendChild(productDiv);
+    
+    // Llenar el select de productos
+    updateProductSelects(productId);
+    
+    // Configurar formateo de números
+    const cantidadInput = document.getElementById(cantidadId);
+    if (cantidadInput) {
+        cantidadInput.addEventListener('blur', function() {
+            const value = this.value;
+            if (value) {
+                const formatted = formatNumberWithCommas(value);
+                if (formatted !== value) {
+                    this.value = formatted;
+                }
+            }
+        });
+        
+        cantidadInput.addEventListener('input', function(e) {
+            let value = this.value;
+            value = value.replace(/[^0-9,]/g, '');
+            if (this.value !== value) {
+                this.value = value;
+            }
+        });
+    }
+    
+    saleProductsCounter++;
+}
+
+function removeProductFromSale(index) {
+    const productDiv = document.getElementById(`productItem_${index}`);
+    if (productDiv) {
+        productDiv.remove();
+        // Renumerar los productos restantes
+        renumerateSaleProducts();
+        updateSaleTotal();
+    }
+}
+
+function renumerateSaleProducts() {
+    const productItems = document.querySelectorAll('.sale-product-item');
+    productItems.forEach((item, index) => {
+        const titleElement = item.querySelector('h4');
+        if (titleElement) {
+            titleElement.textContent = `Producto ${index + 1}`;
+        }
+        
+        // Actualizar el botón de eliminar si no es el primero
+        const deleteButton = item.querySelector('button.btn-danger');
+        if (deleteButton && index === 0) {
+            deleteButton.remove();
+        } else if (index > 0 && !deleteButton) {
+            // Agregar botón de eliminar si no existe
+            const headerDiv = item.querySelector('div[style*="display: flex"]');
+            if (headerDiv) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn btn-danger';
+                btn.onclick = () => removeProductFromSale(index);
+                btn.style.cssText = 'padding: 5px 10px; font-size: 0.85em;';
+                btn.textContent = 'Eliminar';
+                headerDiv.appendChild(btn);
+            }
+        }
+    });
+}
+
+// Función para actualizar el total de la venta según todos los productos agregados
 function updateSaleTotal() {
-    const productoId = document.getElementById('saleProducto').value;
-    const cantidad = parseInt(parseNumberWithCommas(document.getElementById('saleCantidad').value)) || 0;
-    const tipoVenta = document.getElementById('saleTipoVenta').value;
-    
-    if (!productoId || cantidad === 0) {
-        document.getElementById('saleTotal').value = '';
-        return;
-    }
-    
     const productos = getProductos();
-    const producto = productos.find(p => p.id === productoId);
+    let total = 0;
     
-    if (!producto) {
-        document.getElementById('saleTotal').value = '';
-        return;
+    // Obtener todos los elementos de productos que existen en el DOM
+    const productItems = document.querySelectorAll('.sale-product-item');
+    
+    productItems.forEach((item, index) => {
+        // Buscar los elementos dentro de este item
+        const productSelect = item.querySelector('.sale-product-select');
+        const cantidadInput = item.querySelector('.sale-cantidad-input');
+        const tipoVentaSelect = item.querySelector('.sale-tipo-venta-select');
+        
+        if (!productSelect || !cantidadInput || !tipoVentaSelect) return;
+        
+        const productoId = productSelect.value;
+        const cantidadStr = cantidadInput.value.replace(/,/g, ''); // Remover comas
+        const cantidad = parseInt(cantidadStr) || 0;
+        const tipoVenta = tipoVentaSelect.value;
+        
+        if (!productoId || cantidad === 0) return;
+        
+        const producto = productos.find(p => p.id === productoId);
+        if (!producto) return;
+        
+        // Obtener el precio según el tipo de venta
+        let precioUnitario = 0;
+        
+        if (tipoVenta === 'normal') {
+            precioUnitario = parseFloat(producto.precioNormal || producto.precioVenta || 0);
+        } else if (tipoVenta === 'contado') {
+            precioUnitario = parseFloat(producto.precioContado || 0);
+        } else if (tipoVenta === 'mayoreo') {
+            precioUnitario = parseFloat(producto.precioMayoreo || 0);
+        }
+        
+        const subtotal = precioUnitario * cantidad;
+        total += subtotal;
+    });
+    
+    const totalElement = document.getElementById('saleTotal');
+    if (totalElement) {
+        totalElement.value = formatNumberWithCommas(total.toFixed(2));
     }
-    
-    // Obtener el precio según el tipo de venta
-    let precioUnitario = 0;
-    
-    if (tipoVenta === 'normal') {
-        precioUnitario = producto.precioNormal || producto.precioVenta || 0;
-    } else if (tipoVenta === 'contado') {
-        precioUnitario = producto.precioContado || 0;
-    } else if (tipoVenta === 'mayoreo') {
-        precioUnitario = producto.precioMayoreo || 0;
-    }
-    
-    // Calcular total
-    const total = precioUnitario * cantidad;
-    document.getElementById('saleTotal').value = formatNumberWithCommas(total.toFixed(2));
 }
 
 function addSale(event) {
     event.preventDefault();
     
+    const productos = getProductos();
+    const productosVenta = [];
+    
+    // Recopilar todos los productos de la venta
+    for (let i = 0; i < saleProductsCounter; i++) {
+        const productSelect = document.getElementById(`saleProduct_${i}`);
+        const cantidadInput = document.getElementById(`saleCantidad_${i}`);
+        const tipoVentaSelect = document.getElementById(`saleTipoVenta_${i}`);
+        
+        if (!productSelect || !cantidadInput || !tipoVentaSelect) continue;
+        if (!productSelect.parentElement || !productSelect.parentElement.parentElement) continue;
+        
+        const productoId = productSelect.value;
+        const cantidad = parseInt(parseNumberWithCommas(cantidadInput.value)) || 0;
+        const tipoVenta = tipoVentaSelect.value;
+        
+        if (!productoId || cantidad === 0) continue;
+        
+        productosVenta.push({
+            productoId: productoId,
+            cantidad: cantidad,
+            tipoVenta: tipoVenta
+        });
+    }
+    
+    if (productosVenta.length === 0) {
+        showNotification('Debes agregar al menos un producto a la venta');
+        return;
+    }
+    
     const venta = {
         id: generateId(),
         cliente: document.getElementById('saleCliente').value,
-        productoId: document.getElementById('saleProducto').value,
-        cantidad: parseInt(parseNumberWithCommas(document.getElementById('saleCantidad').value)),
-        tipoVenta: document.getElementById('saleTipoVenta').value,
+        productos: productosVenta, // Array de productos
         total: parseNumberWithCommas(document.getElementById('saleTotal').value),
         fecha: document.getElementById('saleFecha').value
     };
+    
+    // Mantener compatibilidad con ventas antiguas (si no tienen productos, usar productoId)
+    if (!venta.productos || venta.productos.length === 0) {
+        // Esto es para compatibilidad hacia atrás, pero no debería pasar
+        showNotification('Error: No se pudo procesar la venta');
+        return;
+    }
     
     const ventas = getVentas();
     ventas.push(venta);
@@ -1027,18 +1203,20 @@ function addSale(event) {
         saveAbonos(abonos);
     }
     
-    // Actualizar cantidad del producto
-    const productos = getProductos();
-    const productoIndex = productos.findIndex(p => p.id === venta.productoId);
-    if (productoIndex !== -1) {
-        productos[productoIndex].cantidad -= venta.cantidad;
-        if (productos[productoIndex].cantidad < 0) productos[productoIndex].cantidad = 0;
-        saveProductos(productos);
-    }
+    // Actualizar cantidad de cada producto
+    productosVenta.forEach(item => {
+        const productoIndex = productos.findIndex(p => p.id === item.productoId);
+        if (productoIndex !== -1) {
+            productos[productoIndex].cantidad -= item.cantidad;
+            if (productos[productoIndex].cantidad < 0) productos[productoIndex].cantidad = 0;
+        }
+    });
+    saveProductos(productos);
     
     closeModal('addSaleModal');
     loadVentas();
     loadInventario();
+    loadCatalogo(); // Recargar catálogo para ocultar productos agotados
     
     showNotification('Venta registrada exitosamente');
 }
@@ -1189,7 +1367,19 @@ async function exportVentaToPDF(ventaId) {
         return;
     }
     
-    const producto = productos.find(p => p.id === venta.productoId);
+    // Compatibilidad: si tiene productos (nuevo formato), usar eso; si no, usar productoId (formato antiguo)
+    let productosVenta = [];
+    if (venta.productos && Array.isArray(venta.productos)) {
+        productosVenta = venta.productos;
+    } else if (venta.productoId) {
+        // Formato antiguo - convertir a nuevo formato
+        productosVenta = [{
+            productoId: venta.productoId,
+            cantidad: venta.cantidad || 0,
+            tipoVenta: venta.tipoVenta || 'normal'
+        }];
+    }
+    
     const ventaAbonos = abonos.filter(a => a.ventaId === venta.id);
     const totalAbonado = ventaAbonos.reduce((sum, a) => sum + a.monto, 0);
     const pendiente = venta.total - totalAbonado;
@@ -1198,7 +1388,10 @@ async function exportVentaToPDF(ventaId) {
     
     try {
         const { jsPDF } = window.jspdf;
-        const doc = new jsPDF('p', 'mm', [80, 200]); // Tamaño de ticket (ancho x alto)
+        // Ajustar altura según cantidad de productos
+        const baseHeight = 200;
+        const extraHeight = productosVenta.length > 1 ? (productosVenta.length - 1) * 15 : 0;
+        const doc = new jsPDF('p', 'mm', [80, baseHeight + extraHeight]); // Tamaño de ticket (ancho x alto)
         const pageWidth = doc.internal.pageSize.getWidth();
         let y = 10;
         
@@ -1272,27 +1465,49 @@ async function exportVentaToPDF(ventaId) {
         doc.text(formatDate(venta.fecha), 35, y);
         y += 6;
         
-        doc.setFont(undefined, 'bold');
-        doc.text('Producto:', 10, y);
-        doc.setFont(undefined, 'normal');
-        doc.text(producto ? producto.codigo : 'N/A', 35, y);
-        y += 6;
-        
-        doc.setFont(undefined, 'bold');
-        doc.text('Cantidad:', 10, y);
-        doc.setFont(undefined, 'normal');
-        doc.text(venta.cantidad.toString(), 35, y);
-        y += 6;
-        
-        // Tipo de venta y porcentaje si existe
-        if (venta.tipoVenta) {
-            const tipoTexto = venta.tipoVenta === 'normal' ? 'Venta' : venta.tipoVenta === 'contado' ? 'Contado' : 'Mayoreo';
+        // Mostrar productos
+        if (productosVenta.length > 0) {
             doc.setFont(undefined, 'bold');
-            doc.text('Tipo:', 10, y);
-            doc.setFont(undefined, 'normal');
-            doc.text(tipoTexto, 35, y);
+            doc.text('Productos:', 10, y);
             y += 6;
+            
+            productosVenta.forEach((item, index) => {
+                const prod = productos.find(p => p.id === item.productoId);
+                const tipoTexto = item.tipoVenta === 'normal' ? 'Venta' : item.tipoVenta === 'contado' ? 'Contado' : 'Mayoreo';
+                
+                doc.setFont(undefined, 'normal');
+                doc.setFontSize(8);
+                doc.text(`${prod ? prod.codigo : 'N/A'}`, 12, y);
+                y += 4;
+                doc.text(`  ${item.cantidad}x - ${tipoTexto}`, 12, y);
+                y += 5;
+            });
+        } else {
+            // Formato antiguo (compatibilidad)
+            const producto = productos.find(p => p.id === venta.productoId);
+            doc.setFont(undefined, 'bold');
+            doc.text('Producto:', 10, y);
+            doc.setFont(undefined, 'normal');
+            doc.text(producto ? producto.codigo : 'N/A', 35, y);
+            y += 6;
+            
+            doc.setFont(undefined, 'bold');
+            doc.text('Cantidad:', 10, y);
+            doc.setFont(undefined, 'normal');
+            doc.text((venta.cantidad || 0).toString(), 35, y);
+            y += 6;
+            
+            if (venta.tipoVenta) {
+                const tipoTexto = venta.tipoVenta === 'normal' ? 'Venta' : venta.tipoVenta === 'contado' ? 'Contado' : 'Mayoreo';
+                doc.setFont(undefined, 'bold');
+                doc.text('Tipo:', 10, y);
+                doc.setFont(undefined, 'normal');
+                doc.text(tipoTexto, 35, y);
+                y += 6;
+            }
         }
+        
+        doc.setFontSize(9); // Restaurar tamaño de fuente
         
         y += 2;
         // Línea separadora
@@ -1399,13 +1614,32 @@ async function exportVentaToPDF(ventaId) {
 
 function updateProductSelects(selectId = null) {
     const productos = getProductos();
-    const selects = selectId 
-        ? [document.getElementById(selectId)]
-        : [document.getElementById('saleProducto'), document.getElementById('editSaleProducto')];
     
-    selects.forEach(select => {
-        if (!select) return;
-        
+    // Si se especifica un selectId, actualizar solo ese
+    if (selectId) {
+        const select = document.getElementById(selectId);
+        if (select) {
+            const currentValue = select.value;
+            select.innerHTML = '<option value="">Seleccionar producto...</option>';
+            
+            productos.forEach(producto => {
+                const option = document.createElement('option');
+                option.value = producto.id;
+                const precioMostrar = producto.precioNormal || producto.precioVenta || 0;
+                option.textContent = `${producto.codigo} - $${formatNumberWithCommas(parseFloat(precioMostrar).toFixed(2))}`;
+                select.appendChild(option);
+            });
+            
+            if (currentValue) {
+                select.value = currentValue;
+            }
+        }
+        return;
+    }
+    
+    // Actualizar todos los selects de productos en el modal de venta
+    const allProductSelects = document.querySelectorAll('.sale-product-select');
+    allProductSelects.forEach(select => {
         const currentValue = select.value;
         select.innerHTML = '<option value="">Seleccionar producto...</option>';
         
@@ -1422,43 +1656,22 @@ function updateProductSelects(selectId = null) {
         }
     });
     
-    // Actualizar total cuando cambia producto, cantidad o tipo de venta
-    if (selectId !== 'editSaleProducto') {
-        const saleProducto = document.getElementById('saleProducto');
-        const saleCantidad = document.getElementById('saleCantidad');
-        const saleTipoVenta = document.getElementById('saleTipoVenta');
+    // También actualizar selects del modal de edición (formato antiguo)
+    const editSaleProducto = document.getElementById('editSaleProducto');
+    if (editSaleProducto) {
+        const currentValue = editSaleProducto.value;
+        editSaleProducto.innerHTML = '<option value="">Seleccionar producto...</option>';
         
-        // Remover listeners anteriores para evitar duplicados
-        if (saleProducto) {
-            saleProducto.removeEventListener('change', updateSaleTotal);
-            saleProducto.addEventListener('change', updateSaleTotal);
-        }
-        if (saleCantidad) {
-            saleCantidad.removeEventListener('input', updateSaleTotal);
-            saleCantidad.addEventListener('input', updateSaleTotal);
-        }
-        if (saleTipoVenta) {
-            saleTipoVenta.removeEventListener('change', updateSaleTotal);
-            saleTipoVenta.addEventListener('change', updateSaleTotal);
-        }
-    } else {
-        // Para el modal de edición
-        const editSaleProducto = document.getElementById('editSaleProducto');
-        const editSaleCantidad = document.getElementById('editSaleCantidad');
-        const editSaleTipoVenta = document.getElementById('editSaleTipoVenta');
+        productos.forEach(producto => {
+            const option = document.createElement('option');
+            option.value = producto.id;
+            const precioMostrar = producto.precioNormal || producto.precioVenta || 0;
+            option.textContent = `${producto.codigo} - $${formatNumberWithCommas(parseFloat(precioMostrar).toFixed(2))}`;
+            editSaleProducto.appendChild(option);
+        });
         
-        // Remover listeners anteriores para evitar duplicados
-        if (editSaleProducto) {
-            editSaleProducto.removeEventListener('change', updateEditSaleTotal);
-            editSaleProducto.addEventListener('change', updateEditSaleTotal);
-        }
-        if (editSaleCantidad) {
-            editSaleCantidad.removeEventListener('input', updateEditSaleTotal);
-            editSaleCantidad.addEventListener('input', updateEditSaleTotal);
-        }
-        if (editSaleTipoVenta) {
-            editSaleTipoVenta.removeEventListener('change', updateEditSaleTotal);
-            editSaleTipoVenta.addEventListener('change', updateEditSaleTotal);
+        if (currentValue) {
+            editSaleProducto.value = currentValue;
         }
     }
 }
