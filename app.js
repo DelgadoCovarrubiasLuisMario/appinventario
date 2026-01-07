@@ -757,52 +757,74 @@ async function exportCatalogoToPDF() {
                 }
                 
                 // Área de información (lado derecho, mitad de la tarjeta)
-                const infoX = x + (cardWidth / 2) + 2; // Inicio del área de info (mitad derecha + pequeño margen)
-                let infoY = y + imgPadding; // Inicio vertical
+                const infoAreaX = x + (cardWidth / 2) + 2; // Inicio del área de info (mitad derecha + pequeño margen)
+                const infoAreaWidth = infoWidth - 4;
+                const infoAreaHeight = cardHeight - (imgPadding * 2); // Altura disponible para la info
+                const infoAreaY = y + imgPadding; // Posición Y inicial del área
+                const infoAreaCenterX = infoAreaX + (infoAreaWidth / 2); // Centro horizontal del área
                 
-                // Código del producto
-                doc.setFontSize(8);
+                // Calcular altura total del contenido para centrar verticalmente
+                let contentHeight = 0;
+                contentHeight += 6; // Código (con espacio)
+                contentHeight += 6; // Precio venta (con espacio)
+                contentHeight += 6; // Precio contado (con espacio)
+                if (producto.comentarios && producto.comentarios.trim()) {
+                    contentHeight += 3; // Línea decorativa
+                    doc.setFontSize(8); // Tamaño para calcular altura
+                    const maxWidth = infoAreaWidth - 8;
+                    const comentarios = doc.splitTextToSize(producto.comentarios.trim(), maxWidth);
+                    const comentariosLines = Math.min(comentarios.length, 3);
+                    contentHeight += comentariosLines * 4; // Altura de comentarios
+                }
+                
+                // Calcular posición Y inicial para centrar verticalmente
+                let infoY = infoAreaY + (infoAreaHeight - contentHeight) / 2;
+                
+                // Código del producto (centrado horizontalmente)
+                doc.setFontSize(10); // Aumentado de 8 a 10
                 doc.setTextColor(120, 120, 120);
                 doc.setFont(undefined, 'bold');
-                doc.text(producto.codigo, infoX, infoY, { maxWidth: infoWidth - 4 });
-                infoY += 5;
+                doc.text(producto.codigo, infoAreaCenterX, infoY, { align: 'center', maxWidth: infoAreaWidth });
+                infoY += 6;
                 
-                // Precios
+                // Precios (centrados horizontalmente)
                 const precioNormal = producto.precioNormal || producto.precioVenta || 0;
-                doc.setFontSize(10);
+                doc.setFontSize(12); // Aumentado de 10 a 12
                 doc.setTextColor(255, 105, 180); // Rosa
                 doc.setFont(undefined, 'bold');
-                doc.text(`Venta: $${formatNumberWithCommas(parseFloat(precioNormal).toFixed(2))}`, infoX, infoY, { maxWidth: infoWidth - 4 });
-                infoY += 5;
+                doc.text(`Venta: $${formatNumberWithCommas(parseFloat(precioNormal).toFixed(2))}`, infoAreaCenterX, infoY, { align: 'center', maxWidth: infoAreaWidth });
+                infoY += 6;
                 
                 const precioContado = producto.precioContado || 0;
-                doc.setFontSize(9);
+                doc.setFontSize(11); // Aumentado de 9 a 11
                 doc.setTextColor(255, 145, 164); // Rosa más claro
                 doc.setFont(undefined, 'normal');
-                doc.text(`Contado: $${formatNumberWithCommas(parseFloat(precioContado).toFixed(2))}`, infoX, infoY, { maxWidth: infoWidth - 4 });
-                infoY += 5;
+                doc.text(`Contado: $${formatNumberWithCommas(parseFloat(precioContado).toFixed(2))}`, infoAreaCenterX, infoY, { align: 'center', maxWidth: infoAreaWidth });
+                infoY += 6;
                 
-                // Agregar comentarios si existen (estilo elegante)
+                // Agregar comentarios si existen (estilo elegante, centrados)
                 if (producto.comentarios && producto.comentarios.trim()) {
                     // Línea decorativa sutil antes de los comentarios
                     doc.setDrawColor(255, 200, 220); // Rosa muy claro
                     doc.setLineWidth(0.2);
-                    doc.line(infoX, infoY, infoX + infoWidth - 8, infoY);
-                    infoY += 3;
+                    const lineStartX = infoAreaCenterX - (infoAreaWidth / 2) + 4;
+                    const lineEndX = infoAreaCenterX + (infoAreaWidth / 2) - 4;
+                    doc.line(lineStartX, infoY, lineEndX, infoY);
+                    infoY += 4;
                     
                     // Comentarios con estilo elegante
-                    doc.setFontSize(7);
+                    doc.setFontSize(8); // Aumentado de 7 a 8
                     doc.setTextColor(140, 120, 130); // Gris rosa elegante
                     doc.setFont(undefined, 'italic'); // Itálica para elegancia
                     
                     // Dividir comentarios en líneas si son muy largos
-                    const maxWidth = infoWidth - 8; // Margen adicional
+                    const maxWidth = infoAreaWidth - 8; // Margen adicional
                     const comentarios = doc.splitTextToSize(producto.comentarios.trim(), maxWidth);
                     
                     comentarios.forEach((line, idx) => {
                         if (idx < 3 && infoY < y + cardHeight - imgPadding) { // Máximo 3 líneas o hasta el final de la tarjeta
-                            doc.text(line, infoX, infoY, { maxWidth: maxWidth });
-                            infoY += 3.5; // Espaciado
+                            doc.text(line, infoAreaCenterX, infoY, { align: 'center', maxWidth: maxWidth });
+                            infoY += 4; // Espaciado aumentado
                         }
                     });
                     
