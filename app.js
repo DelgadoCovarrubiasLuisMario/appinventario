@@ -469,9 +469,10 @@ async function exportCatalogoToPDF() {
         const margin = 12; // Márgenes de la página (en mm)
         const cardWidth = (pageWidth - 3 * margin) / 2; // Ancho de cada tarjeta (2 columnas)
         const cardHeight = 55; // Altura de cada tarjeta de producto (en mm)
-        const imgPadding = 4; // Espacio interno alrededor de las imágenes (en mm)
-        const imgWidth = (cardWidth / 2) - (imgPadding * 2); // Ancho de la imagen (mitad de la tarjeta)
-        const infoWidth = cardWidth / 2; // Ancho del área de información (mitad de la tarjeta)
+        const imgPadding = 0; // Espacio interno alrededor de las imágenes (en mm)
+        const imgWidthPercent = 0.65; // Porcentaje del ancho que ocupa la imagen (65%)
+        const imgWidth = (cardWidth * imgWidthPercent); // Ancho de la imagen (65% de la tarjeta)
+        const infoWidth = cardWidth * (1 - imgWidthPercent); // Ancho del área de información (35% de la tarjeta)
         // ================================================================
         
         let x = margin; // Posición horizontal inicial
@@ -588,7 +589,7 @@ async function exportCatalogoToPDF() {
                 doc.setDrawColor(255, 182, 193);
                 doc.roundedRect(x, y, cardWidth, cardHeight, 3, 3);
                 
-                // Área para la imagen (lado izquierdo, mitad de la tarjeta)
+                // Área para la imagen (lado izquierdo, 65% de la tarjeta)
                 const imgX = x + imgPadding;
                 const imgY = y + imgPadding;
                 const imgAreaWidth = imgWidth;
@@ -756,51 +757,36 @@ async function exportCatalogoToPDF() {
                     doc.text('Error', x + cardWidth / 2, placeholderY + (placeholderHeight / 2), { align: 'center' });
                 }
                 
-                // Área de información (lado derecho, mitad de la tarjeta)
-                const infoAreaX = x + (cardWidth / 2) + 2; // Inicio del área de info (mitad derecha + pequeño margen)
-                const infoAreaWidth = infoWidth - 4;
-                const infoAreaHeight = cardHeight - (imgPadding * 2); // Altura disponible para la info
-                const infoAreaY = y + imgPadding; // Posición Y inicial del área
+                // Área de información (lado derecho, 35% de la tarjeta)
+                const infoAreaX = x + imgWidth; // Inicio del área de info (después de la imagen)
+                const infoAreaWidth = infoWidth; // Ancho del área de información
+                const infoAreaY = y + 5; // Posición Y inicial del área (padding fijo desde arriba)
                 const infoAreaCenterX = infoAreaX + (infoAreaWidth / 2); // Centro horizontal del área
                 
-                // Calcular altura total del contenido para centrar verticalmente
-                let contentHeight = 0;
-                contentHeight += 6; // Código (con espacio)
-                contentHeight += 6; // Precio venta (con espacio)
-                contentHeight += 6; // Precio contado (con espacio)
-                if (producto.comentarios && producto.comentarios.trim()) {
-                    contentHeight += 3; // Línea decorativa
-                    doc.setFontSize(8); // Tamaño para calcular altura
-                    const maxWidth = infoAreaWidth - 8;
-                    const comentarios = doc.splitTextToSize(producto.comentarios.trim(), maxWidth);
-                    const comentariosLines = Math.min(comentarios.length, 3);
-                    contentHeight += comentariosLines * 4; // Altura de comentarios
-                }
-                
-                // Calcular posición Y inicial para centrar verticalmente
-                let infoY = infoAreaY + (infoAreaHeight - contentHeight) / 2;
+                // Comenzar desde arriba con padding fijo (sin centrado vertical para evitar desacomodo)
+                let infoY = infoAreaY;
                 
                 // Código del producto (centrado horizontalmente)
-                doc.setFontSize(10); // Aumentado de 8 a 10
+                doc.setFontSize(12);
                 doc.setTextColor(120, 120, 120);
                 doc.setFont(undefined, 'bold');
-                doc.text(producto.codigo, infoAreaCenterX, infoY, { align: 'center', maxWidth: infoAreaWidth });
-                infoY += 6;
+                doc.text(producto.codigo, infoAreaCenterX, infoY, { align: 'center', maxWidth: infoAreaWidth - 4 });
+                infoY += 10; // Espaciado
                 
                 // Precios (centrados horizontalmente)
                 const precioNormal = producto.precioNormal || producto.precioVenta || 0;
-                doc.setFontSize(12); // Aumentado de 10 a 12
+                doc.setFontSize(14);
                 doc.setTextColor(255, 105, 180); // Rosa
                 doc.setFont(undefined, 'bold');
-                doc.text(`Venta: $${formatNumberWithCommas(parseFloat(precioNormal).toFixed(2))}`, infoAreaCenterX, infoY, { align: 'center', maxWidth: infoAreaWidth });
-                infoY += 6;
+                doc.text(`Venta: $${formatNumberWithCommas(parseFloat(precioNormal).toFixed(2))}`, infoAreaCenterX, infoY, { align: 'center', maxWidth: infoAreaWidth - 4 });
+                infoY += 12; // Espaciado
                 
                 const precioContado = producto.precioContado || 0;
-                doc.setFontSize(11); // Aumentado de 9 a 11
+                doc.setFontSize(13);
                 doc.setTextColor(255, 145, 164); // Rosa más claro
                 doc.setFont(undefined, 'normal');
-                doc.text(`Contado: $${formatNumberWithCommas(parseFloat(precioContado).toFixed(2))}`, infoAreaCenterX, infoY, { align: 'center', maxWidth: infoAreaWidth });
-                infoY += 6;
+                doc.text(`Contado: $${formatNumberWithCommas(parseFloat(precioContado).toFixed(2))}`, infoAreaCenterX, infoY, { align: 'center', maxWidth: infoAreaWidth - 4 });
+                infoY += 12; // Espaciado
                 
                 // Agregar comentarios si existen (estilo elegante, centrados)
                 if (producto.comentarios && producto.comentarios.trim()) {
@@ -810,10 +796,10 @@ async function exportCatalogoToPDF() {
                     const lineStartX = infoAreaCenterX - (infoAreaWidth / 2) + 4;
                     const lineEndX = infoAreaCenterX + (infoAreaWidth / 2) - 4;
                     doc.line(lineStartX, infoY, lineEndX, infoY);
-                    infoY += 4;
+                    infoY += 5; // Espaciado
                     
                     // Comentarios con estilo elegante
-                    doc.setFontSize(8); // Aumentado de 7 a 8
+                    doc.setFontSize(9);
                     doc.setTextColor(140, 120, 130); // Gris rosa elegante
                     doc.setFont(undefined, 'italic'); // Itálica para elegancia
                     
@@ -822,9 +808,9 @@ async function exportCatalogoToPDF() {
                     const comentarios = doc.splitTextToSize(producto.comentarios.trim(), maxWidth);
                     
                     comentarios.forEach((line, idx) => {
-                        if (idx < 3 && infoY < y + cardHeight - imgPadding) { // Máximo 3 líneas o hasta el final de la tarjeta
+                        if (idx < 3 && infoY < y + cardHeight - 5) { // Máximo 3 líneas o hasta el final de la tarjeta
                             doc.text(line, infoAreaCenterX, infoY, { align: 'center', maxWidth: maxWidth });
-                            infoY += 4; // Espaciado aumentado
+                            infoY += 5; // Espaciado
                         }
                     });
                     
@@ -834,7 +820,7 @@ async function exportCatalogoToPDF() {
                 
                 doc.setFont(undefined, 'normal');
                 
-                // Mover a la siguiente posición
+                // Mover a la siguiente posición (2 columnas)
                 x += cardWidth + margin;
                 if (x + cardWidth > pageWidth - margin) {
                     x = margin;
